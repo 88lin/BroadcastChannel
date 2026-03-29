@@ -13,6 +13,7 @@ const STYLE_DIMENSION_REGEX = {
   height: /height:\s*(\d+(?:\.\d+)?)px/i,
 } as const
 const STYLE_PADDING_TOP_REGEX = /padding-top:\s*(\d+(?:\.\d+)?)%/i
+const SYNTHETIC_IMAGE_DIMENSION = 1000
 const TITLE_PREVIEW_REGEX = /^.*?(?=[。\n]|http\S)/g
 const CONTENT_URL_REGEX = /(url\(["'])((https?:)?\/\/)/g
 const UNNECESSARY_HEADERS = new Set(['host', 'cookie', 'origin', 'referer'])
@@ -115,32 +116,55 @@ function getStyleDimension(style: string | undefined, property: 'width' | 'heigh
   return value ? Math.round(Number(value)) : null
 }
 
-function getImageDimensions(
+function getStylePaddingTop(style: string | undefined): number | null {
+  const value = style?.match(STYLE_PADDING_TOP_REGEX)?.[1]
+  return value ? Number(value) : null
+}
+
+// Telegram widgets encode image ratios in styles, so this returns synthetic
+// dimensions for layout reservation rather than real pixel dimensions.
+function inferImageDimensions(
   $: CheerioAPI,
   node: AnyNode,
-  fallback = { width: 1200, height: 1200 },
+  fallback = { width: SYNTHETIC_IMAGE_DIMENSION, height: SYNTHETIC_IMAGE_DIMENSION },
 ): { width: number, height: number } {
   const element = $(node)
   const styles = [
     element.attr('style'),
+    element.find('.tgme_widget_message_photo').first().attr('style'),
     element.find('i').attr('style'),
     element.parent().attr('style'),
   ]
 
+  let width: number | null = null
+  let height: number | null = null
+  let paddingTop: number | null = null
+
   for (const style of styles) {
-    const width = getStyleDimension(style, 'width')
-    const height = getStyleDimension(style, 'height')
+    if (width === null) {
+      width = getStyleDimension(style, 'width')
+    }
+
+    if (height === null) {
+      height = getStyleDimension(style, 'height')
+    }
+
+    if (paddingTop === null) {
+      paddingTop = getStylePaddingTop(style)
+    }
 
     if (width && height) {
       return { width, height }
     }
+  }
 
-    const paddingTop = style?.match(STYLE_PADDING_TOP_REGEX)?.[1]
-    if (width && paddingTop) {
-      return {
-        width,
-        height: Math.round(width * Number(paddingTop) / 100),
-      }
+  // Telegram commonly uses wrap width plus child padding-top to express image
+  // ratio instead of returning real pixel dimensions.
+  if (paddingTop !== null) {
+    const syntheticWidth = width ?? fallback.width
+    return {
+      width: syntheticWidth,
+      height: Math.max(1, Math.round(syntheticWidth * paddingTop / 100)),
     }
   }
 
@@ -225,7 +249,7 @@ function getImages($: CheerioAPI, message: MessageSelection, options: MessageAss
     }
 
     const popoverId = `modal-${id}-${photoIndex}`
-    const { width, height } = getImageDimensions($, photoNode)
+    const { width, height } = inferImageDimensions($, photoNode)
     fragments.push(`
       <button
         type="button"
