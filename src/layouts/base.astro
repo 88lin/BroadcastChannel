@@ -101,11 +101,11 @@ const mainPanelClass = 'w-full min-w-0 pb-5 pt-[10px] sm:mr-5 sm:flex-1 sm:borde
 const asidePanelClass =
   'sticky top-0 w-full min-w-0 border-b border-line bg-paper pb-[10px] shadow-[0_4px_16px_-16px_rgba(0,0,0,0.1)] sm:w-[200px] sm:min-w-[200px] sm:self-start sm:border-b-0 sm:bg-transparent sm:pb-5 sm:shadow-none'
 const asideInnerClass = 'relative overflow-y-visible sm:max-h-[100svh] sm:overflow-y-auto'
-const navListClass = 'm-0 flex list-none flex-wrap gap-[2px] pl-0 pt-5 sm:block'
-const navItemClass = 'flex items-center text-[14px] leading-none sm:mb-[10px] sm:text-base sm:leading-normal'
+const navListClass = 'm-0 flex list-none flex-wrap gap-[6px] pl-0 pt-5 sm:block sm:space-y-[6px]'
+const navItemClass = 'flex items-center text-[14px] leading-none sm:text-base sm:leading-normal'
 const navLinkClass =
-  'flex-1 inline-block rounded-panel px-[10px] py-[5px] text-heading no-underline transition-[background-color,box-shadow] duration-150 ease-in-out hover:bg-white/65 hover:shadow-soft hover:no-underline'
-const navLinkCurrentClass = 'bg-white/75 shadow-soft'
+  'nav-btn flex-1 inline-block rounded-[8px] px-[14px] py-[7px] text-heading no-underline transition-all duration-200 ease-in-out hover:bg-white/80 hover:shadow-soft hover:no-underline hover:-translate-y-px active:translate-y-0 active:shadow-none'
+const navLinkCurrentClass = 'nav-btn--active bg-white/85 shadow-soft font-medium'
 const skipLinkClass =
   'pointer-events-none absolute left-5 top-0 z-[1100] -translate-y-full rounded-panel bg-heading px-3 py-2 text-sm text-white no-underline transition-transform duration-150 focus-visible:pointer-events-auto focus-visible:translate-y-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-heading'
 const searchToggleId = 'search-toggle'
@@ -114,7 +114,7 @@ const searchToggleLabelClass =
   'absolute right-0 top-5 inline-flex h-6 w-6 items-center justify-center rounded-panel bg-paper text-base leading-6 text-heading no-underline peer-focus-visible:outline peer-focus-visible:outline-1 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-heading sm:hidden'
 const searchFormClass = 'mt-3 hidden rounded-panel bg-code p-2 text-muted peer-checked:block sm:mt-0 sm:block'
 const searchInputClass =
-  'box-border w-full rounded-panel border border-paper bg-code px-2 text-[16px] leading-[2.4] text-muted outline-none placeholder:text-muted focus-visible:border-heading focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-heading sm:text-[12px]'
+  'box-border w-full rounded-[8px] border border-paper bg-code px-2 text-[16px] leading-[2.4] text-muted outline-none placeholder:text-muted focus-visible:border-heading focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-heading sm:text-[12px]'
 const footerClass = 'hidden p-2 text-[14px] leading-[1.5] text-footer sm:block'
 const backToTopClass =
   'pointer-events-auto z-[1000] flex h-8 w-8 items-center justify-center rounded-full bg-code text-[24px] opacity-90 transition-transform duration-300 hover:-translate-y-[3px] active:translate-y-px'
@@ -143,6 +143,14 @@ const searchLabelText = 'Search'
   </head>
 
   <body>
+    <div class="announcement-bar" role="marquee" aria-label="Announcement">
+      <div class="announcement-track">
+        <span>&#x26A0;&#xFE0F; 请勿相信网站中的任何广告！所有广告内容均为频道原始内容，与本站无关。</span>
+        <span>&#x26A0;&#xFE0F; 请勿相信网站中的任何广告！所有广告内容均为频道原始内容，与本站无关。</span>
+        <span>&#x26A0;&#xFE0F; 请勿相信网站中的任何广告！所有广告内容均为频道原始内容，与本站无关。</span>
+        <span>&#x26A0;&#xFE0F; 请勿相信网站中的任何广告！所有广告内容均为频道原始内容，与本站无关。</span>
+      </div>
+    </div>
     <a href="#main-content" class={skipLinkClass}>{skipLinkText}</a>
     <main id="main-content" class={layoutShellClass}>
       <div class={layoutGridClass}>
