@@ -513,6 +513,8 @@ async function extractPost($: CheerioAPI, item: AnyNode | null, options: Extract
       return `${prefix}${staticProxy}${normalizedProtocol}`
     })
 
+  const hasImage = message.find('.tgme_widget_message_photo_wrap').length > 0 || message.find('.tgme_widget_message_video_wrap').length > 0 || message.find('.tgme_widget_message_roundvideo_wrap').length > 0 || message.find('.link_preview_image').length > 0
+
   return {
     id,
     title,
@@ -521,6 +523,7 @@ async function extractPost($: CheerioAPI, item: AnyNode | null, options: Extract
     tags,
     text: contentText,
     content: contentHtml,
+    hasImage,
     reactions: reactionsEnabled ? getReactions($, message, staticProxy) : [],
   }
 }
@@ -587,11 +590,29 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
 
   const { $, channel, staticProxy, reactionsEnabled } = await loadChannelDocument(context, { before, after, q })
   const postNodes = $('.tgme_channel_history .tgme_widget_message_wrap').toArray()
+
+  const filterImages = Boolean(getEnv(import.meta.env, context, 'FILTER_IMAGES'))
+  const adKeywordsStr = getEnv(import.meta.env, context, 'AD_KEYWORDS')
+  const adKeywords = typeof adKeywordsStr === 'string' ? adKeywordsStr.split(',').map(k => k.trim()).filter(Boolean) : []
+  const adRegex = adKeywords.length > 0 ? new RegExp(adKeywords.join('|'), 'i') : null
+
   const posts = (await Promise.all(
     postNodes.map((item, index) => extractPost($, item, { channel, staticProxy, index, reactionsEnabled })),
   ))
     .reverse()
     .filter(post => post.type === 'text' && Boolean(post.id) && Boolean(post.content))
+    .filter((post) => {
+      if (filterImages && post.hasImage) {
+        return false
+      }
+      if (adRegex) {
+        const text = post.text || ''
+        if (adRegex.test(text)) {
+          return false
+        }
+      }
+      return true
+    })
 
   const channelInfo: ChannelInfo = {
     posts,

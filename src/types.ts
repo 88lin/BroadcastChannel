@@ -15,6 +15,7 @@ export interface Post {
   text: string
   description?: string
   content: string
+  hasImage?: boolean
   reactions: Reaction[]
 }
 
