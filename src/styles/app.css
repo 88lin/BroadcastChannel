@@ -143,13 +143,16 @@
 
   .announcement-track {
     display: inline-flex;
-    animation: marquee 30s linear infinite;
+    animation: marquee 36s linear infinite;
   }
 
   .announcement-track span {
     flex-shrink: 0;
     padding: 0 48px;
     letter-spacing: 0.04em;
+  }
+  .announcement-bar:hover .announcement-track {
+    animation-play-state: paused;
   }
 
   @keyframes marquee {
