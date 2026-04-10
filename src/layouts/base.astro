@@ -145,126 +145,123 @@ const searchLabelText = 'Search'
   <body>
     <div class="announcement-bar" role="marquee" aria-label="Announcement">
       <div class="announcement-track">
-        <span
-          >&#x26A0;&#xFE0F;
-          请确保网络环境可正常访问订阅链接。部分链接需代理环境下导入，请自行筛选可用节点，可以点击评论区查看其中分享的节点是否可用！请勿相信网站中的任何广告！</span
-        >
-        <span
-          >&#x26A0;&#xFE0F;
-          请确保网络环境可正常访问订阅链接。部分链接需代理环境下导入，请自行筛选可用节点，可以点击评论区查看其中分享的节点是否可用！请勿相信网站中的任何广告！</span
-        >
-        <span
-          >&#x26A0;&#xFE0F;
-          请确保网络环境可正常访问订阅链接。部分链接需代理环境下导入，请自行筛选可用节点，可以点击评论区查看其中分享的节点是否可用！请勿相信网站中的任何广告！</span
-        >
+        <span>&#x26A0;&#xFE0F; 请确保网络环境可正常访问订阅链接。部分链接需代理环境下导入，请自行筛选可用节点，可以点击评论区查看其中分享的节点是否可用！请勿相信网站中的任何广告！</span>
+        <span>&#x26A0;&#xFE0F; 请确保网络环境可正常访问订阅链接。部分链接需代理环境下导入，请自行筛选可用节点，可以点击评论区查看其中分享的节点是否可用！请勿相信网站中的任何广告！</span>
+        <span>&#x26A0;&#xFE0F; 请确保网络环境可正常访问订阅链接。部分链接需代理环境下导入，请自行筛选可用节点，可以点击评论区查看其中分享的节点是否可用！请勿相信网站中的任何广告！</span>
+        <span>&#x26A0;&#xFE0F; 请确保网络环境可正常访问订阅链接。部分链接需代理环境下导入，请自行筛选可用节点，可以点击评论区查看其中分享的节点是否可用！请勿相信网站中的任何广告！</span>
       </div>
-      <a href="#main-content" class={skipLinkClass}>{skipLinkText}</a>
-      <main id="main-content" class={layoutShellClass}>
-        <div class={layoutGridClass}>
-          <div class={mainPanelClass}>
-            <slot />
-          </div>
-          <aside class={asidePanelClass}>
-            <slot name="aside">
-              <div class={asideInnerClass}>
-                <nav aria-label="Primary navigation">
-                  <ul class={navListClass}>
-                    <li class={navItemClass}>
-                      <a
-                        href={SITE_URL}
-                        title={channel?.title}
-                        class:list={[navLinkClass, currentPathname === siteRootPathname && navLinkCurrentClass]}
-                      >
-                        主页
-                      </a>
-                    </li>
-                    {
-                      TAGS ? (
-                        <li class={navItemClass}>
-                          <a
-                            href={`${SITE_URL}tags`}
-                            title="Tags"
-                            class:list={[navLinkClass, currentPathname === tagsPathname && navLinkCurrentClass]}
-                          >
-                            Tags
-                          </a>
-                        </li>
-                      ) : null
-                    }
-                    {
-                      LINKS ? (
-                        <li class={navItemClass}>
-                          <a
-                            href={`${SITE_URL}links`}
-                            title="Links"
-                            class:list={[navLinkClass, currentPathname === linksPathname && navLinkCurrentClass]}
-                          >
-                            Links
-                          </a>
-                        </li>
-                      ) : null
-                    }
-                    {
-                      navs.map((nav) => (
-                        <li class={navItemClass}>
-                          <a
-                            href={nav.href}
-                            title={nav.title}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class={navLinkClass}
-                          >
-                            {nav.title}
-                          </a>
-                        </li>
-                      ))
-                    }
-                  </ul>
-                </nav>
-
-                <input
-                  id={searchToggleId}
-                  class={searchToggleClass}
-                  name="icon"
-                  type="checkbox"
-                  aria-label="Toggle search"
-                />
-                <label for={searchToggleId} class={searchToggleLabelClass} aria-hidden="true">🔍</label>
-                <form class={searchFormClass} action={searchAction} method="get" role="search">
-                  {GOOGLE_SEARCH_SITE ? <input type="hidden" name="as_sitesearch" value={GOOGLE_SEARCH_SITE} /> : null}
-                  <label class="sr-only" for="search-query">{searchLabelText}</label>
-                  <input
-                    id="search-query"
-                    class={searchInputClass}
-                    type="search"
-                    name="q"
-                    placeholder="Search（回车键确认搜索）"
-                    autocomplete="off"
-                    inputmode="search"
-                    spellcheck={false}
-                  />
-                </form>
-
-                <footer class={footerClass}>
-                  <div>防失联请添加交流群</div>
-                  <a href="https://qm.qq.com/q/6GFqTgbwfS" title="QQ交流群" target="_blank" rel="noopener noreferrer">
-                    QQ交流群🪄
-                  </a> |
-                  <a href="https://go.88lin.eu.org/gzh/index.html" title="公众号👋" target="_blank" rel="noopener">
-                    公众号👋
-                  </a>
-                </footer>
-              </div>
-            </slot>
-          </aside>
-        </div>
-        <div id="back-to-top-wrapper">
-          <a href="#main-content" id="back-to-top" class={backToTopClass} aria-label="Back to top">
-            <img {...backToTopIcon} class={backToTopIconClass} alt="" />
-          </a>
-        </div>
-      </main>
-      <Fragment set:html={FOOTER_INJECT} />
     </div>
+    <a href="#main-content" class={skipLinkClass}>{skipLinkText}</a>
+    <main id="main-content" class={layoutShellClass}>
+      <div class={layoutGridClass}>
+        <div class={mainPanelClass}>
+          <slot />
+        </div>
+        <aside class={asidePanelClass}>
+          <slot name="aside">
+            <div class={asideInnerClass}>
+              <nav aria-label="Primary navigation">
+                <ul class={navListClass}>
+                  <li class={navItemClass}>
+                    <a
+                      href={SITE_URL}
+                      title={channel?.title}
+                      class:list={[navLinkClass, currentPathname === siteRootPathname && navLinkCurrentClass]}
+                    >
+                      主页
+                    </a>
+                  </li>
+                  {
+                    TAGS ? (
+                      <li class={navItemClass}>
+                        <a
+                          href={`${SITE_URL}tags`}
+                          title="Tags"
+                          class:list={[navLinkClass, currentPathname === tagsPathname && navLinkCurrentClass]}
+                        >
+                          Tags
+                        </a>
+                      </li>
+                    ) : null
+                  }
+                  {
+                    LINKS ? (
+                      <li class={navItemClass}>
+                        <a
+                          href={`${SITE_URL}links`}
+                          title="Links"
+                          class:list={[navLinkClass, currentPathname === linksPathname && navLinkCurrentClass]}
+                        >
+                          Links
+                        </a>
+                      </li>
+                    ) : null
+                  }
+                  {
+                    navs.map((nav) => (
+                      <li class={navItemClass}>
+                        <a
+                          href={nav.href}
+                          title={nav.title}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class={navLinkClass}
+                        >
+                          {nav.title}
+                        </a>
+                      </li>
+                    ))
+                  }
+                </ul>
+              </nav>
+
+              <input
+                id={searchToggleId}
+                class={searchToggleClass}
+                name="icon"
+                type="checkbox"
+                aria-label="Toggle search"
+              />
+              <label for={searchToggleId} class={searchToggleLabelClass} aria-hidden="true">🔍</label>
+              <form class={searchFormClass} action={searchAction} method="get" role="search">
+                {GOOGLE_SEARCH_SITE ? <input type="hidden" name="as_sitesearch" value={GOOGLE_SEARCH_SITE} /> : null}
+                <label class="sr-only" for="search-query">{searchLabelText}</label>
+                <input
+                  id="search-query"
+                  class={searchInputClass}
+                  type="search"
+                  name="q"
+                  placeholder="Search（回车键确认搜索）"
+                  autocomplete="off"
+                  inputmode="search"
+                  spellcheck={false}
+                />
+              </form>
+
+              <footer class={footerClass}>
+                <div>防失联请添加交流群</div>
+                <a
+                  href="https://qm.qq.com/q/6GFqTgbwfS"
+                  title="QQ交流群🪄"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  QQ交流群🪄
+                </a> |
+                <a href="https://go.88lin.eu.org/gzh/index.html" title="公众号👋" target="_blank" rel="noopener">
+                  公众号👋
+                </a>
+              </footer>
+            </div>
+          </slot>
+        </aside>
+      </div>
+      <div id="back-to-top-wrapper">
+        <a href="#main-content" id="back-to-top" class={backToTopClass} aria-label="Back to top">
+          <img {...backToTopIcon} class={backToTopIconClass} alt="" />
+        </a>
+      </div>
+    </main>
+    <Fragment set:html={FOOTER_INJECT} />
   </body>
 </html>
