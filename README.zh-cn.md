@@ -48,7 +48,7 @@
 - [Abner's memos](https://memos.abnerz6.top/)
 - [小众软件的发现](https://talk.appinn.net/)
 - [小报童优惠与排行榜](https://youhui.xiaobaoto.com/)
-- [热干面拌 10 号土豆泥](https://memo.moran.im/)  
+- [热干面拌 10 号土豆泥](https://memo.moran.im/)
 
 ### 平台
 
@@ -86,6 +86,9 @@
 
 ```env
 ## Telegram 频道用户名，必须配置。 t.me/ 后面那串字符
+## 支持配置多个频道，使用英文逗号分割，例如：channel1,channel2
+## 注意：配置在第一个位置的是“主频道”，主频道发布的内容 URL 和 RSS 不会带频道前缀（如 /posts/123），以保证老链接向下兼容
+## 后续的其他频道会带上频道前缀（如 /posts/channel2-123）
 CHANNEL=miantiao_me
 
 ## 语言和时区设置，语言选项见[dayjs](https://github.com/iamkun/dayjs/tree/dev/src/locale)

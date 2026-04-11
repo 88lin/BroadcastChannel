@@ -7,8 +7,8 @@ const { SITE_URL } = Astro.locals
 const { channel, before = true, after = true, isItem = false, pageHeading } = Astro.props
 const posts = channel.posts ?? []
 
-const beforeCursor = posts[posts.length - 1]?.id
-const afterCursor = posts[0]?.id
+const beforeCursor = channel.beforeCursor ?? posts[posts.length - 1]?.id
+const afterCursor = channel.afterCursor ?? posts[0]?.id
 const itemsClass = 'mt-5 mb-0 ml-7 list-none pl-0 max-sm:ml-0'
 const paginationClass = 'my-5 flex items-center'
 const paginationInfoClass = 'flex-1 text-center align-middle text-[12px] font-medium text-muted'
@@ -29,12 +29,29 @@ const paginationPlaceholderClass = 'inline-block w-[34px]'
       ))
     }
   </ol>
+  <slot />
 
   <nav class={paginationClass} aria-label="Pagination">
     {
-      before && beforeCursor > 1 ? (
+      before &&
+      beforeCursor &&
+      beforeCursor !== 1 &&
+      beforeCursor !== '1' &&
+      beforeCursor !== '0' &&
+      !String(beforeCursor)
+        .split('-')
+        .every((c) => !c || c === '1' || c === '0') ? (
         <a href={`${SITE_URL}before/${beforeCursor}`} title="Before" class="pagination-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
           Before
         </a>
       ) : (
@@ -46,10 +63,23 @@ const paginationPlaceholderClass = 'inline-block w-[34px]'
 
     <div class={paginationInfoClass}></div>
     {
-      after && afterCursor ? (
+      after &&
+      afterCursor &&
+      !String(afterCursor)
+        .split('-')
+        .every((c) => !c || c === '0') ? (
         <a href={`${SITE_URL}after/${afterCursor}`} title="After" class="pagination-btn">
           After
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
         </a>
       ) : (
         <span class={paginationPlaceholderClass} aria-hidden="true">

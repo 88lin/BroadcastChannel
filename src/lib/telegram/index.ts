@@ -32,6 +32,8 @@ interface IndexedStaticProxyOptions extends StaticProxyOptions {
 
 interface ReplyOptions {
   channel: string
+  isMultiChannel?: boolean
+  channels?: string[]
 }
 
 interface MessageAssetOptions extends IndexedStaticProxyOptions {
@@ -44,6 +46,9 @@ interface ExtractPostOptions {
   staticProxy: string
   index?: number
   reactionsEnabled?: string
+  isMultiChannel?: boolean
+  isPrimaryChannel?: boolean
+  allChannels?: string[]
 }
 
 interface LoadedChannelDocument {
@@ -356,7 +361,7 @@ function getLinkPreview($: CheerioAPI, message: MessageSelection, options: Index
 }
 
 function getReply($: CheerioAPI, message: MessageSelection, options: ReplyOptions): string {
-  const { channel } = options
+  const { isMultiChannel, channels = [] } = options
   const reply = message.find('.tgme_widget_message_reply')
 
   reply.wrapInner('<small></small>').wrapInner('<blockquote></blockquote>')
@@ -364,7 +369,33 @@ function getReply($: CheerioAPI, message: MessageSelection, options: ReplyOption
   const href = reply.attr('href')
   if (href) {
     const replyUrl = new URL(href, 'https://t.me')
-    reply.attr('href', replyUrl.pathname.replace(new RegExp(`/${channel}/`, 'i'), '/posts/'))
+    // Extract the channel from the reply URL (format: /channel/id)
+    const pathParts = replyUrl.pathname.split('/').filter(Boolean)
+
+    if (pathParts.length >= 2) {
+      const targetChannel = pathParts[0]
+      const targetId = pathParts[1]
+
+      // Is it pointing to our primary channel?
+      if (channels.length > 0 && targetChannel === channels[0]) {
+        reply.attr('href', `/posts/${targetId}`)
+      }
+      // Is it pointing to one of our secondary channels?
+      else if (isMultiChannel && channels.includes(targetChannel)) {
+        reply.attr('href', `/posts/${targetChannel}-${targetId}`)
+      }
+      // If it's pointing to an external channel we don't manage, we keep it as an external link or leave it alone.
+      else {
+        reply.attr('href', replyUrl.toString())
+        reply.attr('target', '_blank')
+        reply.attr('rel', 'noopener')
+      }
+    }
+    else {
+      reply.attr('href', replyUrl.toString())
+      reply.attr('target', '_blank')
+      reply.attr('rel', 'noopener')
+    }
   }
 
   return $.html(reply)
@@ -467,7 +498,7 @@ function getReactions($: CheerioAPI, message: MessageSelection, staticProxy: str
 }
 
 async function extractPost($: CheerioAPI, item: AnyNode | null, options: ExtractPostOptions): Promise<Post> {
-  const { channel, staticProxy, index = 0, reactionsEnabled } = options
+  const { channel, staticProxy, index = 0, reactionsEnabled, isMultiChannel, isPrimaryChannel } = options
   const message = item ? $(item).find('.tgme_widget_message') : $('.tgme_widget_message')
   const hasReplyText = message.find('.js-message_reply_text').length > 0
   const content = await modifyHTMLContent(
@@ -477,7 +508,10 @@ async function extractPost($: CheerioAPI, item: AnyNode | null, options: Extract
   )
   const contentText = content.text()
   const title = contentText.match(TITLE_PREVIEW_REGEX)?.[0] ?? contentText
-  const id = message.attr('data-post')?.replace(new RegExp(`${channel}/`, 'i'), '') ?? ''
+  const rawId = message.attr('data-post')?.replace(new RegExp(`${channel}/`, 'i'), '') ?? ''
+
+  // For perfect backwards compatibility, the primary channel IDs never get a prefix
+  const id = (isMultiChannel && !isPrimaryChannel) ? `${channel}-${rawId}` : rawId
   const tags: string[] = []
 
   for (const tagNode of content.find('a[href^="?q="]').toArray()) {
@@ -493,7 +527,7 @@ async function extractPost($: CheerioAPI, item: AnyNode | null, options: Extract
   }
 
   const contentHtml = [
-    getReply($, message, { channel }),
+    getReply($, message, { channel, isMultiChannel, channels: options.allChannels }),
     getImages($, message, { staticProxy, id, index, title }),
     getVideo($, message, { staticProxy, index }),
     getAudio($, message, { staticProxy }),
@@ -530,16 +564,16 @@ async function extractPost($: CheerioAPI, item: AnyNode | null, options: Extract
 
 async function loadChannelDocument(
   context: RequestContext,
+  targetChannel: string,
   params: GetChannelInfoParams & { id?: string } = {},
 ): Promise<LoadedChannelDocument> {
   const { before, after, q, id } = params
   const host = getEnv(import.meta.env, context, 'TELEGRAM_HOST') ?? 't.me'
-  const channel = getRequiredEnv(context, 'CHANNEL')
   const staticProxy = getEnv(import.meta.env, context, 'STATIC_PROXY') ?? '/static/'
   const reactionsEnabled = getEnv(import.meta.env, context, 'REACTIONS')
   const requestUrl = id
-    ? `https://${host}/${channel}/${id}?embed=1&mode=tme`
-    : `https://${host}/s/${channel}`
+    ? `https://${host}/${targetChannel}/${id}?embed=1&mode=tme`
+    : `https://${host}/s/${targetChannel}`
 
   console.info('Fetching', requestUrl, { before, after, q, id })
 
@@ -556,13 +590,13 @@ async function loadChannelDocument(
 
   return {
     $: cheerio.load(html, {}, false),
-    channel,
+    channel: targetChannel,
     staticProxy,
     reactionsEnabled,
   }
 }
 
-export async function getChannelPost(context: RequestContext, id: string): Promise<Post> {
+export async function getChannelPost(context: RequestContext, id: string): Promise<Post | null> {
   const cacheKey = JSON.stringify({ scope: 'post', id })
   const cachedResult = cache.get(cacheKey)
 
@@ -571,8 +605,34 @@ export async function getChannelPost(context: RequestContext, id: string): Promi
     return cloneCacheValue(cachedResult)
   }
 
-  const { $, channel, staticProxy, reactionsEnabled } = await loadChannelDocument(context, { id })
-  const post = await extractPost($, null, { channel, staticProxy, reactionsEnabled })
+  const channelsStr = getRequiredEnv(context, 'CHANNEL')
+  const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
+  const isMultiChannel = channels.length > 1
+
+  let targetChannel = channels[0]
+  let targetId = id
+
+  if (isMultiChannel && id.includes('-')) {
+    const parts = id.split('-')
+    const potentialChannel = parts[0]
+    const hasPrefixedId = parts.length > 1 && Boolean(parts.slice(1).join('-'))
+
+    if (!hasPrefixedId || !channels.includes(potentialChannel) || potentialChannel === channels[0]) {
+      return null
+    }
+
+    targetChannel = potentialChannel
+    targetId = parts.slice(1).join('-')
+  }
+
+  const isPrimaryChannel = targetChannel === channels[0]
+
+  const { $, channel, staticProxy, reactionsEnabled } = await loadChannelDocument(context, targetChannel, { id: targetId })
+  const post = await extractPost($, null, { channel, staticProxy, reactionsEnabled, isMultiChannel, isPrimaryChannel, allChannels: channels })
+
+  if (!post.id || !post.content) {
+    return null
+  }
 
   cache.set(cacheKey, post)
   return cloneCacheValue(post)
@@ -588,38 +648,94 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
     return cloneCacheValue(cachedResult)
   }
 
-  const { $, channel, staticProxy, reactionsEnabled } = await loadChannelDocument(context, { before, after, q })
-  const postNodes = $('.tgme_channel_history .tgme_widget_message_wrap').toArray()
+  const channelsStr = getRequiredEnv(context, 'CHANNEL')
+  const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
+  const isMultiChannel = channels.length > 1
+
+  const beforeCursors = before ? before.split('-') : []
+  const afterCursors = after ? after.split('-') : []
 
   const filterImages = Boolean(getEnv(import.meta.env, context, 'FILTER_IMAGES'))
   const adKeywordsStr = getEnv(import.meta.env, context, 'AD_KEYWORDS')
   const adKeywords = typeof adKeywordsStr === 'string' ? adKeywordsStr.split(',').map(k => k.trim()).filter(Boolean) : []
   const adRegex = adKeywords.length > 0 ? new RegExp(adKeywords.join('|'), 'i') : null
 
-  const posts = (await Promise.all(
-    postNodes.map((item, index) => extractPost($, item, { channel, staticProxy, index, reactionsEnabled })),
-  ))
-    .reverse()
-    .filter(post => post.type === 'text' && Boolean(post.id) && Boolean(post.content))
-    .filter((post) => {
-      if (filterImages && post.hasImage) {
-        return false
-      }
-      if (adRegex) {
-        const text = post.text || ''
-        if (adRegex.test(text)) {
-          return false
+  let allPosts: Post[] = []
+  let primaryChannelInfo: Partial<ChannelInfo> = {}
+
+  const nextBeforeCursors: string[] = Array.from({ length: channels.length }).fill('0')
+  const nextAfterCursors: string[] = Array.from({ length: channels.length }).fill('0')
+
+  const fetchPromises = channels.map(async (targetChannel, i) => {
+    const channelBefore = beforeCursors[i] || ''
+    const channelAfter = afterCursors[i] || ''
+
+    // Skip fetching if this channel has reached the end of pagination
+    if ((before && channelBefore === '0') || (after && channelAfter === '0')) {
+      if (i === 0) {
+        primaryChannelInfo = {
+          title: targetChannel,
+          description: '',
+          descriptionHTML: null,
+          avatar: undefined,
         }
       }
-      return true
-    })
+      return []
+    }
 
+    const { $, channel, staticProxy, reactionsEnabled } = await loadChannelDocument(context, targetChannel, { before: channelBefore, after: channelAfter, q })
+
+    if (i === 0) {
+      primaryChannelInfo = {
+        title: $('.tgme_channel_info_header_title').text(),
+        description: $('.tgme_channel_info_description').text(),
+        descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy })).html(),
+        avatar: $('.tgme_page_photo_image img').attr('src'),
+      }
+    }
+
+    const postNodes = $('.tgme_channel_history .tgme_widget_message_wrap').toArray()
+    const extractedPosts = (await Promise.all(
+      postNodes.map((item, index) => extractPost($, item, { channel, staticProxy, index, reactionsEnabled, isMultiChannel, isPrimaryChannel: i === 0, allChannels: channels })),
+    )).reverse()
+
+    const rawBeforeCursor = extractedPosts.at(-1)?.id?.replace(`${channel}-`, '') ?? ''
+    const rawAfterCursor = extractedPosts[0]?.id?.replace(`${channel}-`, '') ?? ''
+
+    nextBeforeCursors[i] = rawBeforeCursor
+    nextAfterCursors[i] = rawAfterCursor
+
+    return extractedPosts
+      .filter(post => post.type === 'text' && Boolean(post.id) && Boolean(post.content))
+      .filter((post) => {
+        if (filterImages && post.hasImage)
+          return false
+        if (adRegex && adRegex.test(post.text || ''))
+          return false
+        return true
+      })
+  })
+
+  const results = await Promise.all(fetchPromises)
+  for (const validPosts of results) {
+    allPosts = allPosts.concat(validPosts)
+  }
+
+  allPosts.sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime())
+
+  const finalBeforeCursor = nextBeforeCursors.some(Boolean) ? nextBeforeCursors.map(c => c || '0').join('-') : undefined
+  const finalAfterCursor = nextAfterCursors.some(Boolean) ? nextAfterCursors.map(c => c || '0').join('-') : undefined
+
+  // Provide raw cursors to help sitemap generation
   const channelInfo: ChannelInfo = {
-    posts,
-    title: $('.tgme_channel_info_header_title').text(),
-    description: $('.tgme_channel_info_description').text(),
-    descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy })).html(),
-    avatar: $('.tgme_page_photo_image img').attr('src'),
+    posts: allPosts,
+    title: primaryChannelInfo.title || '',
+    description: primaryChannelInfo.description || '',
+    descriptionHTML: primaryChannelInfo.descriptionHTML || null,
+    avatar: primaryChannelInfo.avatar,
+    beforeCursor: finalBeforeCursor,
+    afterCursor: finalAfterCursor,
+    sitemapAfterCursor: nextAfterCursors.join('-'),
   }
 
   cache.set(cacheKey, channelInfo)

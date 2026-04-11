@@ -27,6 +27,9 @@ export interface ChannelInfo {
   avatar: string | undefined
   /** Optional SEO override injected by page routes */
   seo?: SeoMeta
+  beforeCursor?: string
+  afterCursor?: string
+  sitemapAfterCursor?: string
 }
 
 export interface SeoMeta {
