@@ -65,9 +65,17 @@ interface LoadedChannelDocument {
 }
 
 interface TimelineCursorPayload {
-  v: 1
+  v: 2
   sources?: TimelineSourceCursor[]
   history?: TimelineSourceCursor[][]
+}
+
+type CompactTimelineSourceCursor = [string, number]
+
+interface CompactTimelineCursorPayload {
+  v: 2
+  s?: CompactTimelineSourceCursor[]
+  h?: CompactTimelineSourceCursor[][]
 }
 
 interface TimelineSourceCursor {
@@ -758,6 +766,17 @@ function getDefaultTimelineSources(channels: string[]): TimelineSourceCursor[] {
   }))
 }
 
+function toCompactTimelineSourceCursor(source: TimelineSourceCursor): CompactTimelineSourceCursor {
+  return [source.before, source.offset]
+}
+
+function fromCompactTimelineSourceCursor(source: CompactTimelineSourceCursor): TimelineSourceCursor {
+  return {
+    before: source[0],
+    offset: source[1],
+  }
+}
+
 function toBase64Url(value: string): string {
   const encoded = encodeURIComponent(value).replace(PERCENT_ESCAPE_REGEX, (_match, code: string) => String.fromCharCode(Number.parseInt(code, 16)))
   return btoa(encoded)
@@ -778,40 +797,51 @@ function fromBase64Url(value: string): string {
 }
 
 function encodeTimelineCursor(payload: TimelineCursorPayload): string {
-  return toBase64Url(JSON.stringify(payload))
+  const compactPayload: CompactTimelineCursorPayload = {
+    v: 2,
+    s: payload.sources?.map(toCompactTimelineSourceCursor),
+    h: payload.history?.map(entry => entry.map(toCompactTimelineSourceCursor)),
+  }
+
+  return toBase64Url(JSON.stringify(compactPayload))
 }
 
 function decodeTimelineCursor(cursor: string): TimelineCursorPayload {
   try {
-    const payload = JSON.parse(fromBase64Url(cursor)) as TimelineCursorPayload
-    if (payload?.v !== 1) {
+    const payload = JSON.parse(fromBase64Url(cursor)) as CompactTimelineCursorPayload
+    if (payload?.v !== 2) {
       throw new Error('Unsupported timeline cursor version')
     }
 
-    if (payload.sources && !Array.isArray(payload.sources)) {
-      throw new Error('Invalid timeline sources payload')
+    if (!Array.isArray(payload.s)) {
+      throw new TypeError('Invalid timeline sources payload')
     }
 
-    if (payload.history && !Array.isArray(payload.history)) {
-      throw new Error('Invalid timeline history payload')
+    if (!Array.isArray(payload.h)) {
+      throw new TypeError('Invalid timeline history payload')
     }
 
-    const isValidSourceCursor = (source: TimelineSourceCursor | undefined): source is TimelineSourceCursor => {
-      return Boolean(source)
-        && typeof source.before === 'string'
-        && Number.isInteger(source.offset)
-        && source.offset >= 0
+    const isValidSourceCursor = (source: CompactTimelineSourceCursor | undefined): source is CompactTimelineSourceCursor => {
+      return Array.isArray(source)
+        && source.length === 2
+        && typeof source[0] === 'string'
+        && Number.isInteger(source[1])
+        && source[1] >= 0
     }
 
-    if (payload.sources?.some(source => !isValidSourceCursor(source))) {
+    if (payload.s.some(source => !isValidSourceCursor(source))) {
       throw new Error('Invalid timeline source shape')
     }
 
-    if (payload.history?.some(entry => !Array.isArray(entry) || entry.some(source => !isValidSourceCursor(source)))) {
+    if (payload.h.some(entry => !Array.isArray(entry) || entry.some(source => !isValidSourceCursor(source)))) {
       throw new Error('Invalid timeline history entry')
     }
 
-    return payload
+    return {
+      v: 2,
+      sources: payload.s.map(fromCompactTimelineSourceCursor),
+      history: payload.h.map(entry => entry.map(fromCompactTimelineSourceCursor)),
+    }
   }
   catch (error) {
     throw new Error(`Invalid timeline cursor: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -905,13 +935,17 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
 
   const channels = getChannels(context)
   const filterConfig = getPostFilterConfig(context)
-  const payload = cursor ? decodeTimelineCursor(cursor) : { v: 1 }
-  const sources = payload.sources && payload.sources.length === channels.length
-    ? payload.sources
-    : getDefaultTimelineSources(channels)
-  const history = payload.history && payload.history.every(entry => entry.length === channels.length)
-    ? payload.history
-    : []
+  const payload = cursor ? decodeTimelineCursor(cursor) : { v: 2 }
+  if (cursor && (!payload.sources || payload.sources.length !== channels.length)) {
+    throw new Error('Invalid timeline cursor sources state')
+  }
+
+  if (cursor && (!payload.history || payload.history.some(entry => entry.length !== channels.length))) {
+    throw new Error('Invalid timeline cursor history state')
+  }
+
+  const sources = payload.sources ?? getDefaultTimelineSources(channels)
+  const history = payload.history ?? []
   const primaryChannelInfo: Partial<ChannelInfo> = {
     title: '',
     description: '',
@@ -964,7 +998,7 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
   })
   const beforeCursor = hasMoreBefore
     ? encodeTimelineCursor({
-        v: 1,
+        v: 2,
         sources: nextSources,
         history: history.concat([sources]),
       })
@@ -972,7 +1006,7 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
   const previousSources = history.at(-1)
   const afterCursor = previousSources
     ? encodeTimelineCursor({
-        v: 1,
+        v: 2,
         sources: previousSources,
         history: history.slice(0, -1),
       })
