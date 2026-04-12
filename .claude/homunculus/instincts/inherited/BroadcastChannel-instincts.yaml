@@ -1,0 +1,351 @@
+# Instincts generated from https://github.com/88lin/BroadcastChannel
+# Generated: 2026-04-12T15:23:05.394Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: BroadcastChannel-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/88lin/BroadcastChannel
+---
+
+# BroadcastChannel Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: fix
+
+## Evidence
+
+- 2 commits analyzed
+- Detected conventional commit pattern
+- Examples: fix: 重构多频道时间线分页逻辑，修正 before/after 翻页问题, fix: 重构多频道时间线分页逻辑并压缩分页游标
+
+---
+id: BroadcastChannel-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/88lin/BroadcastChannel
+---
+
+# BroadcastChannel Commit Length
+
+## Action
+
+Keep commit messages concise (~31 characters)
+
+## Evidence
+
+- Average commit message length: 31 chars
+- Based on 2 commits
+
+---
+id: BroadcastChannel-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/88lin/BroadcastChannel
+---
+
+# BroadcastChannel Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: BroadcastChannel-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/88lin/BroadcastChannel
+---
+
+# BroadcastChannel Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: BroadcastChannel-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/88lin/BroadcastChannel
+---
+
+# BroadcastChannel Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: BroadcastChannel-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/88lin/BroadcastChannel
+---
+
+# BroadcastChannel Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: components, lib, pages
+
+---
+id: BroadcastChannel-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/88lin/BroadcastChannel
+---
+
+# BroadcastChannel Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: BroadcastChannel-workflow-refactor-timeline-pagination-logic
+trigger: "when doing refactor timeline pagination logic"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/88lin/BroadcastChannel
+---
+
+# BroadcastChannel Workflow Refactor Timeline Pagination Logic
+
+## Action
+
+Follow the refactor-timeline-pagination-logic workflow:
+1. Update src/lib/telegram/index.ts to change pagination logic and cursor encoding.
+2. Modify src/components/list.astro and/or src/pages/[cursor].astro (before/after) to use the new pagination logic.
+3. Update src/types.ts if new types or cursor formats are introduced.
+4. Test and adjust behavior on the homepage (src/pages/index.astro) and multi-channel views.
+5. Add fallback and edge-case handling for pagination stability.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/lib/telegram/index.ts, src/components/list.astro, src/pages/after/[cursor].astro
+
+---
+id: broadcastchannel-instinct-camelcase-naming
+trigger: "When creating new files, functions, or variables in the codebase"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: 88lin/BroadcastChannel
+---
+
+# Broadcastchannel Instinct Camelcase Naming
+
+## Action
+
+Use camelCase for file and function names, PascalCase for class names, and SCREAMING_SNAKE_CASE for constants
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions
+- Consistent naming in src/lib/telegram/index.ts and src/components/list.astro
+
+---
+id: broadcastchannel-instinct-relative-imports
+trigger: "When importing modules within the codebase"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: 88lin/BroadcastChannel
+---
+
+# Broadcastchannel Instinct Relative Imports
+
+## Action
+
+Use relative import paths instead of absolute or alias-based imports
+
+## Evidence
+
+- Pattern in codeStyle.importStyle
+- Seen in src/lib/telegram/index.ts
+
+---
+id: broadcastchannel-instinct-named-exports
+trigger: "When exporting functions, classes, or constants from a module"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: 88lin/BroadcastChannel
+---
+
+# Broadcastchannel Instinct Named Exports
+
+## Action
+
+Use named exports rather than default exports
+
+## Evidence
+
+- Pattern in codeStyle.exportStyle
+- Seen in src/lib/telegram/index.ts
+
+---
+id: broadcastchannel-instinct-try-catch-error-handling
+trigger: "When handling errors in TypeScript code"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: 88lin/BroadcastChannel
+---
+
+# Broadcastchannel Instinct Try Catch Error Handling
+
+## Action
+
+Use try-catch blocks for error handling rather than custom error classes or global handlers
+
+## Evidence
+
+- Pattern in errorHandling.style
+- No evidence of custom error classes or boundaries
+
+---
+id: broadcastchannel-instinct-git-conventional-commits-fix
+trigger: "When making a commit that resolves a bug or issue"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: 88lin/BroadcastChannel
+---
+
+# Broadcastchannel Instinct Git Conventional Commits Fix
+
+## Action
+
+Prefix the commit message with 'fix:' followed by a concise description (preferably in Chinese if appropriate)
+
+## Evidence
+
+- Pattern in commits.prefixes
+- Seen in commit: 'fix: 重构多频道时间线分页逻辑，修正 before/after 翻页问题'
+
+---
+id: broadcastchannel-instinct-git-commit-length
+trigger: "When writing a commit message"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: 88lin/BroadcastChannel
+---
+
+# Broadcastchannel Instinct Git Commit Length
+
+## Action
+
+Keep the commit message concise, around 30-35 characters on average
+
+## Evidence
+
+- Pattern in commits.averageLength
+
+---
+id: broadcastchannel-instinct-refactor-timeline-pagination
+trigger: "When someone needs to fix or enhance the timeline pagination, especially for multi-channel aggregation and cursor management"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: 88lin/BroadcastChannel
+---
+
+# Broadcastchannel Instinct Refactor Timeline Pagination
+
+## Action
+
+Follow the workflow: update src/lib/telegram/index.ts for pagination logic, modify src/components/list.astro and src/pages/[cursor].astro, update src/types.ts if needed, test homepage and multi-channel views, and add edge-case handling
+
+## Evidence
+
+- Workflow: refactor-timeline-pagination-logic
+- Commit sequence and files in workflow example
+
+---
+id: broadcastchannel-instinct-test-location-separate
+trigger: "When adding or updating tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: 88lin/BroadcastChannel
+---
+
+# Broadcastchannel Instinct Test Location Separate
+
+## Action
+
+Place test files in a separate location from the main source code, not mixed within src/
+
+## Evidence
+
+- Pattern in architecture.folderStructure.testLocation
+
+---
+id: broadcastchannel-instinct-type-based-module-organization
+trigger: "When organizing or adding new modules"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: 88lin/BroadcastChannel
+---
+
+# Broadcastchannel Instinct Type Based Module Organization
+
+## Action
+
+Organize modules by type (e.g., components, lib, pages) within the src/ directory
+
+## Evidence
+
+- Pattern in architecture.moduleOrganization
+- Folder structure: src/components, src/lib, src/pages
+
