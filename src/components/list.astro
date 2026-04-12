@@ -7,8 +7,8 @@ const { SITE_URL } = Astro.locals
 const { channel, before = true, after = true, isItem = false, pageHeading } = Astro.props
 const posts = channel.posts ?? []
 
-const beforeCursor = channel.beforeCursor ?? posts[posts.length - 1]?.id
-const afterCursor = channel.afterCursor ?? posts[0]?.id
+const beforeCursor = channel.beforeCursor
+const afterCursor = channel.afterCursor
 const itemsClass = 'mt-5 mb-0 ml-7 list-none pl-0 max-sm:ml-0'
 const paginationClass = 'my-5 flex items-center'
 const paginationInfoClass = 'flex-1 text-center align-middle text-[12px] font-medium text-muted'
@@ -33,15 +33,8 @@ const paginationPlaceholderClass = 'inline-block w-[34px]'
 
   <nav class={paginationClass} aria-label="Pagination">
     {
-      before &&
-      beforeCursor &&
-      beforeCursor !== 1 &&
-      beforeCursor !== '1' &&
-      beforeCursor !== '0' &&
-      !String(beforeCursor)
-        .split('-')
-        .every((c) => !c || c === '1' || c === '0') ? (
-        <a href={`${SITE_URL}before/${beforeCursor}`} title="Before" class="pagination-btn">
+      before && beforeCursor ? (
+        <a href={`${SITE_URL}before/${encodeURIComponent(beforeCursor)}`} title="Before" class="pagination-btn">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -63,12 +56,8 @@ const paginationPlaceholderClass = 'inline-block w-[34px]'
 
     <div class={paginationInfoClass}></div>
     {
-      after &&
-      afterCursor &&
-      !String(afterCursor)
-        .split('-')
-        .every((c) => !c || c === '0') ? (
-        <a href={`${SITE_URL}after/${afterCursor}`} title="After" class="pagination-btn">
+      after && afterCursor ? (
+        <a href={`${SITE_URL}after/${encodeURIComponent(afterCursor)}`} title="After" class="pagination-btn">
           After
           <svg
             viewBox="0 0 24 24"

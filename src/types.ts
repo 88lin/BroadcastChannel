@@ -46,6 +46,11 @@ export interface GetChannelInfoParams {
   q?: string
 }
 
+export interface TimelinePage {
+  channel: ChannelInfo
+  pageSize: number
+}
+
 export interface EnvCapableAstro {
   locals?: App.Locals & {
     runtime?: {
