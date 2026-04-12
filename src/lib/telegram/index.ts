@@ -85,8 +85,14 @@ interface TimelineSourceCursor {
 
 interface TimelineSourcePage {
   posts: Post[]
+  source: TimelineSourceCursor
   nextBefore: string
   exhausted: boolean
+}
+
+interface TimelineMergeState {
+  page: TimelineSourcePage
+  index: number
 }
 
 interface PostFilterConfig {
@@ -865,6 +871,7 @@ async function getTimelineSourcePage(
   if (source.before === '0') {
     return {
       posts: [],
+      source,
       nextBefore: '0',
       exhausted: true,
     }
@@ -904,6 +911,10 @@ async function getTimelineSourcePage(
     if (offsetToSkip < visiblePosts.length) {
       return {
         posts: visiblePosts.slice(offsetToSkip),
+        source: {
+          before: currentBefore,
+          offset: offsetToSkip,
+        },
         nextBefore,
         exhausted: nextBefore === '0',
       }
@@ -912,6 +923,10 @@ async function getTimelineSourcePage(
     if (nextBefore === '0') {
       return {
         posts: [],
+        source: {
+          before: currentBefore,
+          offset: offsetToSkip,
+        },
         nextBefore: '0',
         exhausted: true,
       }
@@ -952,49 +967,95 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
     descriptionHTML: null,
     avatar: undefined,
   }
-  const sourcePages = await Promise.all(
-    channels.map((channelName, channelIndex) => getTimelineSourcePage(
-      context,
-      channelName,
-      channelIndex,
-      sources[channelIndex],
-      channels,
-      filterConfig,
-      primaryChannelInfo,
-    )),
-  )
+  const states: TimelineMergeState[] = (await Promise.all(
+    channels.map(async (channelName, channelIndex) => ({
+      page: await getTimelineSourcePage(
+        context,
+        channelName,
+        channelIndex,
+        sources[channelIndex],
+        channels,
+        filterConfig,
+        primaryChannelInfo,
+      ),
+      index: 0,
+    })),
+  ))
+  const posts: Post[] = []
 
-  const mergedPosts = sourcePages.flatMap(page => page.posts)
-  mergedPosts.sort((a, b) => compareTimelineEntries(a, b, channels))
+  async function advanceState(channelIndex: number): Promise<void> {
+    const state = states[channelIndex]
 
-  const posts = mergedPosts.slice(0, TIMELINE_PAGE_SIZE)
-  const usedCounts = Array.from({ length: channels.length }).fill(0)
-
-  for (const post of posts) {
-    usedCounts[getPostChannelIndex(post.id, channels)] += 1
+    while (state.index >= state.page.posts.length && !state.page.exhausted) {
+      state.page = await getTimelineSourcePage(
+        context,
+        channels[channelIndex],
+        channelIndex,
+        {
+          before: state.page.nextBefore,
+          offset: 0,
+        },
+        channels,
+        filterConfig,
+        primaryChannelInfo,
+      )
+      state.index = 0
+    }
   }
 
-  const nextSources = sources.map((source, index) => {
-    const page = sourcePages[index]
-    const consumed = usedCounts[index]
-    const remainingVisible = Math.max(page.posts.length - consumed, 0)
+  await Promise.all(states.map((_state, index) => advanceState(index)))
+
+  while (posts.length < TIMELINE_PAGE_SIZE) {
+    let nextChannelIndex = -1
+    let nextPost: Post | undefined
+
+    for (let index = 0; index < states.length; index += 1) {
+      const candidate = states[index].page.posts[states[index].index]
+      if (!candidate) {
+        continue
+      }
+
+      if (!nextPost || compareTimelineEntries(candidate, nextPost, channels) < 0) {
+        nextPost = candidate
+        nextChannelIndex = index
+      }
+    }
+
+    if (nextChannelIndex === -1 || !nextPost) {
+      break
+    }
+
+    posts.push(nextPost)
+    states[nextChannelIndex].index += 1
+    await advanceState(nextChannelIndex)
+  }
+
+  const nextSources = states.map((state) => {
+    const remainingVisible = state.page.posts.length - state.index
 
     if (remainingVisible > 0) {
       return {
-        before: source.before,
-        offset: source.offset + consumed,
+        before: state.page.source.before,
+        offset: state.page.source.offset + state.index,
+      }
+    }
+
+    if (state.page.exhausted) {
+      return {
+        before: '0',
+        offset: 0,
       }
     }
 
     return {
-      before: page.nextBefore,
+      before: state.page.nextBefore,
       offset: 0,
     }
   })
 
-  const hasMoreBefore = sourcePages.some((page, index) => {
-    const remainingVisible = page.posts.length - usedCounts[index]
-    return remainingVisible > 0 || !page.exhausted
+  const hasMoreBefore = states.some((state) => {
+    const remainingVisible = state.page.posts.length - state.index
+    return remainingVisible > 0 || !state.page.exhausted
   })
   const beforeCursor = hasMoreBefore
     ? encodeTimelineCursor({
