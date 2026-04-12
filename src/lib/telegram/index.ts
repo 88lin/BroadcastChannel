@@ -1,5 +1,5 @@
 import type { AnyNode, Cheerio, CheerioAPI } from 'cheerio'
-import type { ChannelInfo, EnvCapableAstro, GetChannelInfoParams, Post, Reaction } from '../../types'
+import type { ChannelInfo, EnvCapableAstro, GetChannelInfoParams, Post, Reaction, TimelinePage } from '../../types'
 import * as cheerio from 'cheerio'
 import flourite from 'flourite'
 import { LRUCache } from 'lru-cache'
@@ -16,6 +16,12 @@ const STYLE_PADDING_TOP_REGEX = /padding-top:\s*(\d+(?:\.\d+)?)%/i
 const SYNTHETIC_IMAGE_DIMENSION = 1000
 const TITLE_PREVIEW_REGEX = /^.*?(?=[。\n]|http\S)/g
 const CONTENT_URL_REGEX = /(url\(["'])((https?:)?\/\/)/g
+const PERCENT_ESCAPE_REGEX = /%([0-9A-F]{2})/g
+const BASE64_PLUS_REGEX = /\+/g
+const BASE64_SLASH_REGEX = /\//g
+const BASE64_PADDING_REGEX = /=+$/g
+const BASE64URL_DASH_REGEX = /-/g
+const BASE64URL_UNDERSCORE_REGEX = /_/g
 const UNNECESSARY_HEADERS = new Set(['host', 'cookie', 'origin', 'referer'])
 
 type CacheValue = ChannelInfo | Post
@@ -58,11 +64,43 @@ interface LoadedChannelDocument {
   reactionsEnabled?: string
 }
 
+interface TimelineCursorPayload {
+  v: 2
+  sources?: TimelineSourceCursor[]
+  history?: TimelineSourceCursor[][]
+}
+
+type CompactTimelineSourceCursor = [string, number]
+
+interface CompactTimelineCursorPayload {
+  v: 2
+  s?: CompactTimelineSourceCursor[]
+  h?: CompactTimelineSourceCursor[][]
+}
+
+interface TimelineSourceCursor {
+  before: string
+  offset: number
+}
+
+interface TimelineSourcePage {
+  posts: Post[]
+  nextBefore: string
+  exhausted: boolean
+}
+
+interface PostFilterConfig {
+  filterImages: boolean
+  adRegex: RegExp | null
+}
+
 const cache = new LRUCache<string, CacheValue>({
   ttl: 1000 * 60 * 5,
   maxSize: 50 * 1024 * 1024,
   sizeCalculation: item => JSON.stringify(item).length,
 })
+
+const TIMELINE_PAGE_SIZE = 40
 
 function cloneCacheValue<T extends CacheValue>(value: T): T {
   return structuredClone(value)
@@ -636,6 +674,359 @@ export async function getChannelPost(context: RequestContext, id: string): Promi
 
   cache.set(cacheKey, post)
   return cloneCacheValue(post)
+}
+
+function getChannels(context: RequestContext): string[] {
+  const channelsStr = getRequiredEnv(context, 'CHANNEL')
+  return channelsStr.split(',').map(c => c.trim()).filter(Boolean)
+}
+
+function getPostFilterConfig(context: RequestContext): PostFilterConfig {
+  const filterImages = Boolean(getEnv(import.meta.env, context, 'FILTER_IMAGES'))
+  const adKeywordsStr = getEnv(import.meta.env, context, 'AD_KEYWORDS')
+  const adKeywords = typeof adKeywordsStr === 'string' ? adKeywordsStr.split(',').map(k => k.trim()).filter(Boolean) : []
+
+  return {
+    filterImages,
+    adRegex: adKeywords.length > 0 ? new RegExp(adKeywords.join('|'), 'i') : null,
+  }
+}
+
+function filterPosts(posts: Post[], filterConfig: PostFilterConfig): Post[] {
+  const { filterImages, adRegex } = filterConfig
+
+  return posts
+    .filter(post => post.type === 'text' && Boolean(post.id) && Boolean(post.content))
+    .filter((post) => {
+      if (filterImages && post.hasImage)
+        return false
+      if (adRegex && adRegex.test(post.text || ''))
+        return false
+      return true
+    })
+}
+
+function getPostChannelIndex(id: string, channels: string[]): number {
+  const separatorIndex = id.indexOf('-')
+
+  if (separatorIndex > 0) {
+    const channel = id.slice(0, separatorIndex)
+    const index = channels.indexOf(channel)
+    if (index > 0) {
+      return index
+    }
+  }
+
+  return 0
+}
+
+function getPostRawId(id: string, channels: string[]): string {
+  const channelIndex = getPostChannelIndex(id, channels)
+  if (channelIndex === 0) {
+    return id
+  }
+
+  return id.slice(channels[channelIndex].length + 1)
+}
+
+function compareRawIdsDesc(a: string, b: string): number {
+  const aNum = Number(a)
+  const bNum = Number(b)
+  const areNumeric = Number.isFinite(aNum) && Number.isFinite(bNum)
+
+  if (areNumeric && aNum !== bNum) {
+    return bNum - aNum
+  }
+
+  return b.localeCompare(a)
+}
+
+function compareTimelineEntries(
+  a: Pick<Post, 'id' | 'datetime'>,
+  b: Pick<Post, 'id' | 'datetime'>,
+  channels: string[],
+): number {
+  const timeDiff = new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
+  if (timeDiff !== 0) {
+    return timeDiff
+  }
+
+  const channelDiff = getPostChannelIndex(a.id, channels) - getPostChannelIndex(b.id, channels)
+  if (channelDiff !== 0) {
+    return channelDiff
+  }
+
+  return compareRawIdsDesc(getPostRawId(a.id, channels), getPostRawId(b.id, channels))
+}
+
+function getDefaultTimelineSources(channels: string[]): TimelineSourceCursor[] {
+  return channels.map(() => ({
+    before: '',
+    offset: 0,
+  }))
+}
+
+function toCompactTimelineSourceCursor(source: TimelineSourceCursor): CompactTimelineSourceCursor {
+  return [source.before, source.offset]
+}
+
+function fromCompactTimelineSourceCursor(source: CompactTimelineSourceCursor): TimelineSourceCursor {
+  return {
+    before: source[0],
+    offset: source[1],
+  }
+}
+
+function toBase64Url(value: string): string {
+  const encoded = encodeURIComponent(value).replace(PERCENT_ESCAPE_REGEX, (_match, code: string) => String.fromCharCode(Number.parseInt(code, 16)))
+  return btoa(encoded)
+    .replace(BASE64_PLUS_REGEX, '-')
+    .replace(BASE64_SLASH_REGEX, '_')
+    .replace(BASE64_PADDING_REGEX, '')
+}
+
+function fromBase64Url(value: string): string {
+  const normalized = value
+    .replace(BASE64URL_DASH_REGEX, '+')
+    .replace(BASE64URL_UNDERSCORE_REGEX, '/')
+    .padEnd(Math.ceil(value.length / 4) * 4, '=')
+
+  const decoded = atob(normalized)
+  const bytes = decoded.split('').map(char => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`).join('')
+  return decodeURIComponent(bytes)
+}
+
+function encodeTimelineCursor(payload: TimelineCursorPayload): string {
+  const compactPayload: CompactTimelineCursorPayload = {
+    v: 2,
+    s: payload.sources?.map(toCompactTimelineSourceCursor),
+    h: payload.history?.map(entry => entry.map(toCompactTimelineSourceCursor)),
+  }
+
+  return toBase64Url(JSON.stringify(compactPayload))
+}
+
+function decodeTimelineCursor(cursor: string): TimelineCursorPayload {
+  try {
+    const payload = JSON.parse(fromBase64Url(cursor)) as CompactTimelineCursorPayload
+    if (payload?.v !== 2) {
+      throw new Error('Unsupported timeline cursor version')
+    }
+
+    if (!Array.isArray(payload.s)) {
+      throw new TypeError('Invalid timeline sources payload')
+    }
+
+    if (!Array.isArray(payload.h)) {
+      throw new TypeError('Invalid timeline history payload')
+    }
+
+    const isValidSourceCursor = (source: CompactTimelineSourceCursor | undefined): source is CompactTimelineSourceCursor => {
+      return Array.isArray(source)
+        && source.length === 2
+        && typeof source[0] === 'string'
+        && Number.isInteger(source[1])
+        && source[1] >= 0
+    }
+
+    if (payload.s.some(source => !isValidSourceCursor(source))) {
+      throw new Error('Invalid timeline source shape')
+    }
+
+    if (payload.h.some(entry => !Array.isArray(entry) || entry.some(source => !isValidSourceCursor(source)))) {
+      throw new Error('Invalid timeline history entry')
+    }
+
+    return {
+      v: 2,
+      sources: payload.s.map(fromCompactTimelineSourceCursor),
+      history: payload.h.map(entry => entry.map(fromCompactTimelineSourceCursor)),
+    }
+  }
+  catch (error) {
+    throw new Error(`Invalid timeline cursor: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
+export function isRootTimelineCursor(cursor: string): boolean {
+  const payload = decodeTimelineCursor(cursor)
+  return (payload.history ?? []).length === 0
+}
+
+async function getTimelineSourcePage(
+  context: RequestContext,
+  channelName: string,
+  channelIndex: number,
+  source: TimelineSourceCursor,
+  channels: string[],
+  filterConfig: PostFilterConfig,
+  primaryChannelInfo: Partial<ChannelInfo>,
+): Promise<TimelineSourcePage> {
+  if (source.before === '0') {
+    return {
+      posts: [],
+      nextBefore: '0',
+      exhausted: true,
+    }
+  }
+
+  let currentBefore = source.before
+  let offsetToSkip = source.offset
+
+  while (true) {
+    const { $, channel, staticProxy, reactionsEnabled } = await loadChannelDocument(context, channelName, {
+      before: currentBefore,
+    })
+
+    if (channelIndex === 0 && !primaryChannelInfo.title) {
+      primaryChannelInfo.title = $('.tgme_channel_info_header_title').text()
+      primaryChannelInfo.description = $('.tgme_channel_info_description').text()
+      primaryChannelInfo.descriptionHTML = (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy })).html()
+      primaryChannelInfo.avatar = $('.tgme_page_photo_image img').attr('src')
+    }
+
+    const postNodes = $('.tgme_channel_history .tgme_widget_message_wrap').toArray()
+    const extractedPosts = (await Promise.all(
+      postNodes.map((item, index) => extractPost($, item, {
+        channel,
+        staticProxy,
+        index,
+        reactionsEnabled,
+        isMultiChannel: channels.length > 1,
+        isPrimaryChannel: channelIndex === 0,
+        allChannels: channels,
+      })),
+    )).reverse()
+
+    const visiblePosts = filterPosts(extractedPosts, filterConfig)
+    const nextBefore = extractedPosts.at(-1)?.id?.replace(`${channel}-`, '') || '0'
+
+    if (offsetToSkip < visiblePosts.length) {
+      return {
+        posts: visiblePosts.slice(offsetToSkip),
+        nextBefore,
+        exhausted: nextBefore === '0',
+      }
+    }
+
+    if (nextBefore === '0') {
+      return {
+        posts: [],
+        nextBefore: '0',
+        exhausted: true,
+      }
+    }
+
+    offsetToSkip -= visiblePosts.length
+    currentBefore = nextBefore
+  }
+}
+
+export async function getTimelinePage(context: RequestContext, cursor = ''): Promise<TimelinePage> {
+  const cacheKey = JSON.stringify({ scope: 'timeline', cursor })
+  const cachedResult = cache.get(cacheKey)
+
+  if (cachedResult && isChannelInfo(cachedResult)) {
+    return {
+      channel: cloneCacheValue(cachedResult),
+      pageSize: TIMELINE_PAGE_SIZE,
+    }
+  }
+
+  const channels = getChannels(context)
+  const filterConfig = getPostFilterConfig(context)
+  const payload = cursor ? decodeTimelineCursor(cursor) : { v: 2 }
+  if (cursor && (!payload.sources || payload.sources.length !== channels.length)) {
+    throw new Error('Invalid timeline cursor sources state')
+  }
+
+  if (cursor && (!payload.history || payload.history.some(entry => entry.length !== channels.length))) {
+    throw new Error('Invalid timeline cursor history state')
+  }
+
+  const sources = payload.sources ?? getDefaultTimelineSources(channels)
+  const history = payload.history ?? []
+  const primaryChannelInfo: Partial<ChannelInfo> = {
+    title: '',
+    description: '',
+    descriptionHTML: null,
+    avatar: undefined,
+  }
+  const sourcePages = await Promise.all(
+    channels.map((channelName, channelIndex) => getTimelineSourcePage(
+      context,
+      channelName,
+      channelIndex,
+      sources[channelIndex],
+      channels,
+      filterConfig,
+      primaryChannelInfo,
+    )),
+  )
+
+  const mergedPosts = sourcePages.flatMap(page => page.posts)
+  mergedPosts.sort((a, b) => compareTimelineEntries(a, b, channels))
+
+  const posts = mergedPosts.slice(0, TIMELINE_PAGE_SIZE)
+  const usedCounts = Array.from({ length: channels.length }).fill(0)
+
+  for (const post of posts) {
+    usedCounts[getPostChannelIndex(post.id, channels)] += 1
+  }
+
+  const nextSources = sources.map((source, index) => {
+    const page = sourcePages[index]
+    const consumed = usedCounts[index]
+    const remainingVisible = Math.max(page.posts.length - consumed, 0)
+
+    if (remainingVisible > 0) {
+      return {
+        before: source.before,
+        offset: source.offset + consumed,
+      }
+    }
+
+    return {
+      before: page.nextBefore,
+      offset: 0,
+    }
+  })
+
+  const hasMoreBefore = sourcePages.some((page, index) => {
+    const remainingVisible = page.posts.length - usedCounts[index]
+    return remainingVisible > 0 || !page.exhausted
+  })
+  const beforeCursor = hasMoreBefore
+    ? encodeTimelineCursor({
+        v: 2,
+        sources: nextSources,
+        history: history.concat([sources]),
+      })
+    : undefined
+  const previousSources = history.at(-1)
+  const afterCursor = previousSources
+    ? encodeTimelineCursor({
+        v: 2,
+        sources: previousSources,
+        history: history.slice(0, -1),
+      })
+    : undefined
+  const channel: ChannelInfo = {
+    posts,
+    title: primaryChannelInfo.title || '',
+    description: primaryChannelInfo.description || '',
+    descriptionHTML: primaryChannelInfo.descriptionHTML || null,
+    avatar: primaryChannelInfo.avatar,
+    beforeCursor,
+    afterCursor,
+  }
+
+  cache.set(cacheKey, channel)
+
+  return {
+    channel,
+    pageSize: TIMELINE_PAGE_SIZE,
+  }
 }
 
 export async function getChannelInfo(context: RequestContext, params: GetChannelInfoParams = {}): Promise<ChannelInfo> {
