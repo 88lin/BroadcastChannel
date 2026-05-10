@@ -47,6 +47,7 @@
 - [小众软件的发现](https://talk.appinn.net/)
 - [小报童优惠与排行榜](https://youhui.xiaobaoto.com/)
 - [热干面拌 10 号土豆泥](https://memo.moran.im/)
+- [万事屋工程部](https://t.wanshiwu.fyi/)
 
 ### 平台
 
