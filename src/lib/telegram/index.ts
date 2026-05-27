@@ -335,7 +335,7 @@ function getImages($: CheerioAPI, message: MessageSelection, options: MessageAss
     return ''
   }
 
-  const layoutClass = fragments.length % 2 === 0 ? 'image-list-even' : 'image-list-odd'
+  const layoutClass = fragments.length === 1 ? 'image-list-single' : fragments.length % 2 === 0 ? 'image-list-even' : 'image-list-odd'
   return `<div class="image-list-container ${layoutClass}">${fragments.join('')}</div>`
 }
 
