@@ -33,26 +33,26 @@ const timeago = datetime.isBefore(dayjs().subtract(1, 'w')) ? datetime.format('H
 const hasContent = post.content.length > 0
 const hasReactions = Boolean(REACTIONS && post.reactions?.length > 0)
 const hasTags = post.tags.length > 0
-const articleClass = 'transition duration-200'
+const articleClass =
+  'rounded-3xl border border-line bg-surface px-5 py-5 shadow-craft transition duration-200 sm:px-7 sm:py-7 lg:px-8 lg:py-8 lg:hover:shadow-soft'
 const timeBoxClass = 'flex items-center leading-none'
-const timeDotClass = 'h-[8px] w-[8px] rounded-full bg-accent'
-const timeTextClass = 'm-0 flex-1 pl-[10px] text-[14px] font-medium text-accent'
-const itemLinkClass = 'text-accent no-underline hover:underline'
-const contentClass = 'ml-[3px] border-l-2 border-line py-[30px] pl-[15px] text-base leading-[1.6] sm:pl-[30px]'
-const reactionBoxClass = 'ml-[3px] border-l-2 border-line pb-6 pl-[15px] pt-[6px] sm:pl-[30px]'
+const timeDotClass = 'h-[8px] w-[8px] rounded-full bg-muted/45'
+const timeTextClass = 'm-0 flex-1 pl-[10px] text-[14px] font-medium text-muted'
+const itemLinkClass = 'text-muted no-underline hover:text-heading hover:underline'
+const contentClass = 'mt-5'
+const reactionBoxClass = 'mt-5 border-t border-line pt-4'
 const reactionListClass = 'm-0 flex flex-wrap gap-[6px]'
 const reactionPillClass =
-  'inline-flex items-center gap-1 rounded-full border border-line bg-code py-[3px] pl-[6px] pr-[8px] text-[12px] text-muted'
-const reactionPaidClass = 'border-[rgba(255,196,0,0.35)] bg-[rgba(255,196,0,0.12)] text-[#9a6a00]'
+  'inline-flex items-center gap-1 rounded-full border border-line bg-[#f3f4f6] py-[3px] pl-[6px] pr-[8px] text-[12px] text-muted'
+const reactionPaidClass = 'border-[#facc15] bg-[#fbf3db] text-heading'
 const reactionEmojiClass = 'inline-flex items-center text-[14px] leading-none'
 const reactionCountClass = 'font-medium opacity-80 [font-variant-numeric:tabular-nums]'
-const tagBoxClass =
-  'ml-[3px] flex flex-wrap items-center gap-2 border-l-2 border-line pl-[15px] text-[14px] leading-[1.6] sm:pl-[30px]'
-const tagPaddingClass = COMMENTS && isItem ? 'pb-[30px]' : 'pb-5'
-const tagStandaloneClass = 'pt-[30px]'
+const tagBoxClass = 'mt-5 flex flex-wrap items-center gap-2 border-t border-line pt-4 text-[14px] leading-[1.6]'
+const tagPaddingClass = COMMENTS && isItem ? 'mb-5' : ''
+const tagStandaloneClass = 'mt-5'
 const tagLinkClass =
-  'inline-block rounded-[4px] border border-line px-[10px] py-[2px] text-muted no-underline hover:border-accent hover:text-accent hover:no-underline'
-const commentsClass = 'ml-[3px] border-l-2 border-line pb-6 pl-[15px] pt-[6px] sm:pl-[30px]'
+  'inline-flex items-center rounded-2xl border border-transparent bg-transparent px-3 py-1 text-[13px] font-medium text-muted no-underline transition hover:border-[#93c5fd] hover:bg-[#ebf4ff] hover:text-heading hover:shadow-[0_6px_12px_rgba(59,130,246,0.08)] hover:no-underline'
+const commentsClass = 'mt-5 border-t border-line pt-4'
 const getTagHref = (tag: string) => `/search/result?q=${encodeURIComponent(`#${tag}`)}`
 ---
 

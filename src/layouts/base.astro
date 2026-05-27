@@ -2,7 +2,10 @@
 import '../styles/app.css'
 import { SEO } from 'astro-seo'
 import { getEnv } from '../lib/env'
+import { Icon } from 'astro-icon/components'
 import backToTopIcon from '../assets/back-to-top.svg'
+import voidFile from '../assets/void.png'
+import { siteTitleStyle } from '../lib/ui'
 import type { NavItem } from '../types'
 
 const { SITE_URL, RSS_URL, RSS_PREFIX } = Astro.locals
@@ -82,6 +85,14 @@ const seoParams = {
 const googleSearchSiteEnv = getEnv(import.meta.env, Astro, 'GOOGLE_SEARCH_SITE')
 const GOOGLE_SEARCH_SITE = typeof googleSearchSiteEnv === 'string' ? googleSearchSiteEnv : undefined
 const searchAction = GOOGLE_SEARCH_SITE ? 'https://www.google.com/search' : `${SITE_URL}search/result`
+const staticProxy = getEnv(import.meta.env, Astro, 'STATIC_PROXY') ?? '/static/'
+const PODCASRT = getEnv(import.meta.env, Astro, 'PODCASRT')
+const TWITTER = getEnv(import.meta.env, Astro, 'TWITTER')
+const GITHUB = getEnv(import.meta.env, Astro, 'GITHUB')
+const TELEGRAM = getEnv(import.meta.env, Astro, 'TELEGRAM')
+const DISCORD = getEnv(import.meta.env, Astro, 'DISCORD')
+const MASTODON = getEnv(import.meta.env, Astro, 'MASTODON')
+const BLUESKY = getEnv(import.meta.env, Astro, 'BLUESKY')
 
 const HEADER_INJECT = getEnv(import.meta.env, Astro, 'HEADER_INJECT')
 const FOOTER_INJECT = getEnv(import.meta.env, Astro, 'FOOTER_INJECT')
@@ -104,28 +115,103 @@ const navs: NavItem[] = (typeof navsEnv === 'string' ? navsEnv : '')
       href,
     }
   })
+const socialLinks = [
+  {
+    href: RSS_URL,
+    title: 'RSS Feed',
+    label: 'RSS Feed',
+    icon: 'ri:rss-line',
+    rel: 'alternate noopener noreferrer',
+    type: 'application/rss+xml',
+  },
+  PODCASRT && {
+    href: PODCASRT,
+    title: 'Podcast',
+    label: 'Podcast',
+    icon: 'ri:mic-line',
+    rel: 'noopener noreferrer',
+  },
+  TWITTER &&
+    TWITTER.length > 0 && {
+      href: `https://x.com/${TWITTER}`,
+      title: 'Twitter',
+      label: 'Twitter / X',
+      icon: 'ri:twitter-x-line',
+      rel: 'noopener noreferrer',
+    },
+  GITHUB &&
+    GITHUB.length > 0 && {
+      href: `https://github.com/${GITHUB}`,
+      title: 'GitHub',
+      label: 'GitHub',
+      icon: 'ri:github-line',
+      rel: 'noopener noreferrer',
+    },
+  TELEGRAM &&
+    TELEGRAM.length > 0 && {
+      href: `https://t.me/${TELEGRAM}`,
+      title: 'Telegram',
+      label: 'Telegram',
+      icon: 'ri:telegram-line',
+      rel: 'noopener noreferrer',
+    },
+  DISCORD &&
+    DISCORD.length > 0 && {
+      href: DISCORD,
+      title: 'Discord',
+      label: 'Discord',
+      icon: 'ri:discord-line',
+      rel: 'noopener noreferrer',
+    },
+  MASTODON &&
+    MASTODON.length > 0 && {
+      href: `https://${MASTODON}`,
+      title: 'Mastodon',
+      label: 'Mastodon',
+      icon: 'ri:mastodon-line',
+      rel: 'noopener noreferrer',
+    },
+  BLUESKY &&
+    BLUESKY.length > 0 && {
+      href: `https://bsky.app/profile/${BLUESKY}`,
+      title: 'BlueSky',
+      label: 'Bluesky',
+      icon: 'ri:bluesky-line',
+      rel: 'noopener noreferrer',
+    },
+].filter(Boolean)
 
 const layoutShellClass = 'mx-5'
-const layoutGridClass = 'mx-auto flex w-full max-w-[800px] flex-col-reverse sm:flex-row sm:items-start'
-const mainPanelClass = 'w-full min-w-0 pb-5 pt-[10px] sm:mr-5 sm:flex-1 sm:border-r sm:border-line sm:pr-[30px] sm:pt-5'
-const asidePanelClass =
-  'sticky top-0 w-full min-w-0 border-b border-line bg-paper pb-[10px] shadow-[0_4px_16px_-16px_rgba(0,0,0,0.1)] sm:w-[200px] sm:min-w-[200px] sm:self-start sm:border-b-0 sm:bg-transparent sm:pb-5 sm:shadow-none'
-const asideInnerClass = 'relative overflow-y-visible sm:max-h-[100svh] sm:overflow-y-auto'
-const navListClass = 'm-0 flex list-none flex-wrap gap-[6px] pl-0 pt-5 sm:block sm:space-y-[6px]'
-const navItemClass = 'flex items-center text-[14px] leading-none sm:text-base sm:leading-normal'
+const layoutGridClass = 'mx-auto flex w-full max-w-[920px] flex-col sm:items-start'
+const mainPanelClass = 'w-full min-w-0 pb-5 pt-[10px] sm:flex-1 sm:pt-5'
+const topNavWrapClass = 'mx-3 pt-4 sm:mx-5 md:fixed md:left-0 md:right-0 md:top-4 md:z-50 md:mx-auto md:px-5 md:pt-0'
+const topNavClass =
+  'site-top-nav mx-auto flex w-full max-w-[920px] min-w-0 flex-col gap-3 overflow-hidden rounded-[26px] px-3 py-3 sm:px-4 md:h-[52px] md:flex-row md:items-center md:justify-between md:gap-4 md:py-2 md:pl-4 md:pr-2'
+const topNavBrandClass =
+  'site-top-brand inline-flex w-full min-w-0 items-center gap-2 rounded-full px-1.5 py-1 text-[15px] font-semibold leading-none text-heading no-underline hover:no-underline md:w-auto md:shrink-0'
+const topNavLogoClass = 'h-7 w-7 shrink-0 rounded-full border border-line bg-code object-cover shadow-soft'
+const topNavBrandTextClass = 'truncate'
+const topNavGroupClass = 'flex w-full min-w-0 items-center gap-1.5 sm:justify-center md:w-auto md:flex-none'
+const navListClass = 'm-0 flex min-w-0 list-none flex-wrap items-center gap-1.5 p-0 md:flex-nowrap md:gap-3'
+const navItemClass = 'flex items-center text-[14px] leading-none'
 const navLinkClass =
-  'nav-btn flex-1 inline-block rounded-[8px] px-[14px] py-[7px] text-heading no-underline transition-all duration-200 ease-in-out hover:bg-white/80 hover:shadow-soft hover:no-underline hover:-translate-y-px active:translate-y-0 active:shadow-none'
-const navLinkCurrentClass = 'nav-btn--active bg-white/85 shadow-soft font-medium'
+  'nav-btn inline-flex h-10 min-w-0 items-center justify-center rounded-full px-3 py-1 text-[14px] font-semibold tracking-[0.1em] text-heading no-underline transition-all duration-100 ease-in-out hover:no-underline active:translate-y-0 md:min-w-[76px]'
+const navLinkCurrentClass = 'nav-btn--active font-medium'
 const skipLinkClass =
   'pointer-events-none absolute left-5 top-0 z-[1100] -translate-y-full rounded-panel bg-heading px-3 py-2 text-sm text-white no-underline transition-transform duration-150 focus-visible:pointer-events-auto focus-visible:translate-y-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-heading'
-const searchToggleId = 'search-toggle'
-const searchToggleClass = 'peer sr-only sm:hidden'
-const searchToggleLabelClass =
-  'absolute right-0 top-5 inline-flex h-6 w-6 items-center justify-center rounded-panel bg-paper text-base leading-6 text-heading no-underline peer-focus-visible:outline peer-focus-visible:outline-1 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-heading sm:hidden'
-const searchFormClass = 'mt-3 hidden rounded-panel bg-code p-2 text-muted peer-checked:block sm:mt-0 sm:block'
+const topNavActionClass = 'flex w-full min-w-0 flex-wrap items-center gap-2 sm:justify-end md:w-auto'
+const socialNavClass = 'flex items-center gap-1'
+const socialLinkClass =
+  'group inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-muted no-underline transition duration-100 hover:border-[#93c5fd] hover:bg-[#ebf4ff] hover:text-[#1e73be] hover:no-underline'
+const socialIconClass =
+  'h-[1em] w-[1em] align-bottom [filter:var(--icon-secondary-filter)] group-hover:[filter:var(--icon-hover-filter)]'
+const searchFormClass =
+  'min-w-0 flex-1 rounded-full border border-[#bfdbfe]/70 bg-[#ebf4ff]/75 p-1 text-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] md:min-w-[110px] md:flex-none'
 const searchInputClass =
-  'box-border w-full rounded-[8px] border border-paper bg-code px-2 text-[16px] leading-[2.4] text-muted outline-none placeholder:text-muted focus-visible:border-heading focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-heading sm:text-[12px]'
-const footerClass = 'hidden p-2 text-[14px] leading-[1.5] text-footer sm:block'
+  'box-border w-full rounded-full border border-transparent bg-transparent px-3 text-[15px] leading-[2.2] text-[#1e73be] outline-none placeholder:text-[#1e73be]/60 focus-visible:border-[#93c5fd] focus-visible:bg-white/70 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-[#93c5fd] md:w-[118px] md:text-[13px]'
+const footerClass = 'text-[13px] leading-none text-footer'
+const footerLinkClass =
+  'inline-flex min-h-9 items-center rounded-full border border-[#93c5fd]/80 bg-[#ebf4ff]/80 px-4 font-medium text-[#1e73be] no-underline shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition duration-100 hover:border-[#60a5fa] hover:bg-[#dbeafe] hover:text-[#155f9f] hover:no-underline'
 const backToTopClass =
   'pointer-events-auto z-[1000] flex h-8 w-8 items-center justify-center rounded-full bg-code text-[24px] opacity-90 transition-transform duration-300 hover:-translate-y-[3px] active:translate-y-px'
 const backToTopIconClass = 'h-auto w-auto [filter:var(--icon-secondary-filter)]'
@@ -167,108 +253,128 @@ const searchLabelText = 'Search'
       ) : null
     }
     <a href="#main-content" class={skipLinkClass}>{skipLinkText}</a>
+    <header class={topNavWrapClass} aria-label="站点导航">
+      <div class={topNavClass}>
+        <a href={SITE_URL} title={channel?.title} class={topNavBrandClass}>
+          <img
+            src={channel?.avatar?.startsWith('http') ? staticProxy + channel?.avatar : voidFile.src}
+            alt=""
+            loading="eager"
+            fetchpriority="high"
+            width="28"
+            height="28"
+            class={topNavLogoClass}
+          />
+          <span class={topNavBrandTextClass} style={siteTitleStyle}>{channel?.title}</span>
+        </a>
+        <div class={topNavGroupClass}>
+          <nav aria-label="Primary navigation">
+            <ul class={navListClass}>
+              <li class={navItemClass}>
+                <a
+                  href={SITE_URL}
+                  title={channel?.title}
+                  class:list={[navLinkClass, currentPathname === siteRootPathname && navLinkCurrentClass]}
+                >
+                  主页
+                </a>
+              </li>
+              {
+                TAGS ? (
+                  <li class={navItemClass}>
+                    <a
+                      href={`${SITE_URL}tags`}
+                      title="Tags"
+                      class:list={[navLinkClass, currentPathname === tagsPathname && navLinkCurrentClass]}
+                    >
+                      Tags
+                    </a>
+                  </li>
+                ) : null
+              }
+              {
+                LINKS ? (
+                  <li class={navItemClass}>
+                    <a
+                      href={`${SITE_URL}links`}
+                      title="Links"
+                      class:list={[navLinkClass, currentPathname === linksPathname && navLinkCurrentClass]}
+                    >
+                      Links
+                    </a>
+                  </li>
+                ) : null
+              }
+              {
+                navs.map((nav) => (
+                  <li class={navItemClass}>
+                    <a href={nav.href} title={nav.title} target="_blank" rel="noopener noreferrer" class={navLinkClass}>
+                      {nav.title}
+                    </a>
+                  </li>
+                ))
+              }
+            </ul>
+          </nav>
+        </div>
+        <div class={topNavActionClass}>
+          <nav class={socialNavClass} aria-label="Channel links">
+            {
+              socialLinks.map((item) => (
+                <a
+                  href={item.href}
+                  title={item.title}
+                  target="_blank"
+                  rel={item.rel}
+                  type={item.type}
+                  aria-label={item.label}
+                  class={socialLinkClass}
+                >
+                  <Icon name={item.icon} class={socialIconClass} aria-hidden="true" />
+                </a>
+              ))
+            }
+          </nav>
+          <form class={searchFormClass} action={searchAction} method="get" role="search">
+            {GOOGLE_SEARCH_SITE ? <input type="hidden" name="as_sitesearch" value={GOOGLE_SEARCH_SITE} /> : null}
+            <label class="sr-only" for="search-query">{searchLabelText}</label>
+            <input
+              id="search-query"
+              class={searchInputClass}
+              type="search"
+              name="q"
+              placeholder="Search"
+              autocomplete="off"
+              inputmode="search"
+              spellcheck={false}
+            />
+          </form>
+          <footer class={footerClass}>
+            <a
+              href="https://blog.88lin.eu.org"
+              title="茉灵智库"
+              target="_blank"
+              rel="noopener noreferrer"
+              class={footerLinkClass}
+            >
+              茉灵智库
+            </a>
+          </footer>
+        </div>
+      </div>
+    </header>
     <main id="main-content" class={layoutShellClass}>
       <div class={layoutGridClass}>
         <div class={mainPanelClass}>
           <slot />
         </div>
-        <aside class={asidePanelClass}>
-          <slot name="aside">
-            <div class={asideInnerClass}>
-              <nav aria-label="Primary navigation">
-                <ul class={navListClass}>
-                  <li class={navItemClass}>
-                    <a
-                      href={SITE_URL}
-                      title={channel?.title}
-                      class:list={[navLinkClass, currentPathname === siteRootPathname && navLinkCurrentClass]}
-                    >
-                      主页
-                    </a>
-                  </li>
-                  {
-                    TAGS ? (
-                      <li class={navItemClass}>
-                        <a
-                          href={`${SITE_URL}tags`}
-                          title="Tags"
-                          class:list={[navLinkClass, currentPathname === tagsPathname && navLinkCurrentClass]}
-                        >
-                          Tags
-                        </a>
-                      </li>
-                    ) : null
-                  }
-                  {
-                    LINKS ? (
-                      <li class={navItemClass}>
-                        <a
-                          href={`${SITE_URL}links`}
-                          title="Links"
-                          class:list={[navLinkClass, currentPathname === linksPathname && navLinkCurrentClass]}
-                        >
-                          Links
-                        </a>
-                      </li>
-                    ) : null
-                  }
-                  {
-                    navs.map((nav) => (
-                      <li class={navItemClass}>
-                        <a
-                          href={nav.href}
-                          title={nav.title}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class={navLinkClass}
-                        >
-                          {nav.title}
-                        </a>
-                      </li>
-                    ))
-                  }
-                </ul>
-              </nav>
-
-              <input
-                id={searchToggleId}
-                class={searchToggleClass}
-                name="icon"
-                type="checkbox"
-                aria-label="Toggle search"
-              />
-              <label for={searchToggleId} class={searchToggleLabelClass} aria-hidden="true">🔍</label>
-              <form class={searchFormClass} action={searchAction} method="get" role="search">
-                {GOOGLE_SEARCH_SITE ? <input type="hidden" name="as_sitesearch" value={GOOGLE_SEARCH_SITE} /> : null}
-                <label class="sr-only" for="search-query">{searchLabelText}</label>
-                <input
-                  id="search-query"
-                  class={searchInputClass}
-                  type="search"
-                  name="q"
-                  placeholder="Search（回车键确认搜索）"
-                  autocomplete="off"
-                  inputmode="search"
-                  spellcheck={false}
-                />
-              </form>
-
-              <footer class={footerClass}>
-                Powered by
-                <a href="https://blog.88lin.eu.org" title="茉灵智库🪄" target="_blank" rel="noopener noreferrer">
-                  茉灵智库🪄
-                </a>
-              </footer>
-            </div>
-          </slot>
-        </aside>
-      </div>
-      <div id="back-to-top-wrapper">
-        <a href="#main-content" id="back-to-top" class={backToTopClass} aria-label="Back to top">
-          <img {...backToTopIcon} class={backToTopIconClass} alt="" />
-        </a>
       </div>
     </main>
+    <div id="back-to-top-wrapper">
+      <a href="#main-content" id="back-to-top" class={backToTopClass} aria-label="Back to top">
+        <img {...backToTopIcon} class={backToTopIconClass} alt="" />
+      </a>
+    </div>
     <Fragment set:html={FOOTER_INJECT} />
   </body>
 </html>
