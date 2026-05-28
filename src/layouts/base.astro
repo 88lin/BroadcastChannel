@@ -184,7 +184,7 @@ const socialLinks = [
 const layoutShellClass = 'mx-5'
 const layoutGridClass = 'mx-auto flex w-full max-w-[920px] flex-col sm:items-start'
 const mainPanelClass = 'w-full min-w-0 pb-5 pt-[10px] sm:flex-1 sm:pt-5'
-const topNavWrapClass = 'mx-3 pt-4 sm:mx-5 md:fixed md:left-0 md:right-0 md:top-4 md:z-50 md:mx-auto md:px-5 md:pt-0'
+const topNavWrapClass = `mx-3 pt-4 sm:mx-5 ${showBanner ? 'md:sticky md:top-4' : 'md:fixed md:left-0 md:right-0 md:top-4'} md:z-50 md:mx-auto md:px-5 md:pt-0`
 const topNavClass =
   'site-top-nav mx-auto flex w-full max-w-[920px] min-w-0 flex-col gap-3 overflow-hidden rounded-[26px] px-3 py-3 sm:px-4 md:h-[52px] md:flex-row md:items-center md:justify-between md:gap-4 md:py-2 md:pl-4 md:pr-2'
 const topNavBrandClass =
@@ -235,7 +235,7 @@ const searchLabelText = 'Search'
     <Fragment set:html={HEADER_INJECT} />
   </head>
 
-  <body>
+  <body class:list={[showBanner && 'has-announcement']}>
     {
       showBanner ? (
         <div class="announcement-bar" role="region" aria-label="站点公告">
