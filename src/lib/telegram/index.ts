@@ -97,6 +97,7 @@ interface TimelineMergeState {
 
 interface PostFilterConfig {
   filterImages: boolean
+  filterFiles: boolean
   adRegex: RegExp | null
 }
 
@@ -553,6 +554,7 @@ async function extractPost($: CheerioAPI, item: AnyNode | null, options: Extract
   const contentText = content.text()
   const title = contentText.match(TITLE_PREVIEW_REGEX)?.[0] ?? contentText
   const rawId = message.attr('data-post')?.replace(new RegExp(`${channel}/`, 'i'), '') ?? ''
+  const hasFile = message.find('.tgme_widget_message_document_wrap').length > 0
 
   // For perfect backwards compatibility, the primary channel IDs never get a prefix
   const id = (isMultiChannel && !isPrimaryChannel) ? `${channel}-${rawId}` : rawId
@@ -602,6 +604,7 @@ async function extractPost($: CheerioAPI, item: AnyNode | null, options: Extract
     text: contentText,
     content: contentHtml,
     hasImage,
+    hasFile,
     reactions: reactionsEnabled ? getReactions($, message, staticProxy) : [],
   }
 }
@@ -689,22 +692,26 @@ function getChannels(context: RequestContext): string[] {
 
 function getPostFilterConfig(context: RequestContext): PostFilterConfig {
   const filterImages = Boolean(getEnv(import.meta.env, context, 'FILTER_IMAGES'))
+  const filterFiles = Boolean(getEnv(import.meta.env, context, 'FILTER_FILES'))
   const adKeywordsStr = getEnv(import.meta.env, context, 'AD_KEYWORDS')
   const adKeywords = typeof adKeywordsStr === 'string' ? adKeywordsStr.split(',').map(k => k.trim()).filter(Boolean) : []
 
   return {
     filterImages,
+    filterFiles,
     adRegex: adKeywords.length > 0 ? new RegExp(adKeywords.join('|'), 'i') : null,
   }
 }
 
 function filterPosts(posts: Post[], filterConfig: PostFilterConfig): Post[] {
-  const { filterImages, adRegex } = filterConfig
+  const { filterImages, filterFiles, adRegex } = filterConfig
 
   return posts
     .filter(post => post.type === 'text' && Boolean(post.id) && Boolean(post.content))
     .filter((post) => {
       if (filterImages && post.hasImage)
+        return false
+      if (filterFiles && post.hasFile)
         return false
       if (adRegex && adRegex.test(post.text || ''))
         return false
@@ -1107,10 +1114,7 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
   const beforeCursors = before ? before.split('-') : []
   const afterCursors = after ? after.split('-') : []
 
-  const filterImages = Boolean(getEnv(import.meta.env, context, 'FILTER_IMAGES'))
-  const adKeywordsStr = getEnv(import.meta.env, context, 'AD_KEYWORDS')
-  const adKeywords = typeof adKeywordsStr === 'string' ? adKeywordsStr.split(',').map(k => k.trim()).filter(Boolean) : []
-  const adRegex = adKeywords.length > 0 ? new RegExp(adKeywords.join('|'), 'i') : null
+  const filterConfig = getPostFilterConfig(context)
 
   let allPosts: Post[] = []
   let primaryChannelInfo: Partial<ChannelInfo> = {}
@@ -1157,15 +1161,7 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
     nextBeforeCursors[i] = rawBeforeCursor
     nextAfterCursors[i] = rawAfterCursor
 
-    return extractedPosts
-      .filter(post => post.type === 'text' && Boolean(post.id) && Boolean(post.content))
-      .filter((post) => {
-        if (filterImages && post.hasImage)
-          return false
-        if (adRegex && adRegex.test(post.text || ''))
-          return false
-        return true
-      })
+    return filterPosts(extractedPosts, filterConfig)
   })
 
   const results = await Promise.all(fetchPromises)
