@@ -98,8 +98,14 @@
   }
 
   ::selection {
-    background: rgb(209, 196, 255);
-    color: rgb(47, 28, 84);
+    background: rgb(246, 198, 219);
+    color: rgb(74, 34, 62);
+  }
+
+  .content blockquote::selection,
+  .content blockquote *::selection {
+    background: var(--quote-selection);
+    color: rgb(0, 0, 0);
   }
 }
 
