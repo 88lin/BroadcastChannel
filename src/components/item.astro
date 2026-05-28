@@ -34,9 +34,9 @@ const hasContent = post.content.length > 0
 const hasReactions = Boolean(REACTIONS && post.reactions?.length > 0)
 const hasTags = post.tags.length > 0
 const articleClass =
-  'rounded-3xl border border-line bg-surface px-5 py-5 shadow-craft transition duration-200 sm:px-7 sm:py-7 lg:px-8 lg:py-8 lg:hover:shadow-soft'
+  'w-full min-w-0 max-w-full rounded-3xl border border-line bg-surface px-5 py-5 shadow-craft transition duration-200 sm:px-7 sm:py-7 lg:px-8 lg:py-8 lg:hover:shadow-soft'
 const timeBoxClass = 'flex items-center leading-none'
-const timeDotClass = 'h-[8px] w-[8px] rounded-full bg-muted/45'
+const timeDotClass = 'read-state-dot h-[8px] w-[8px] rounded-full bg-muted/45'
 const timeTextClass = 'm-0 flex-1 pl-[10px] text-[14px] font-medium text-muted'
 const itemLinkClass = 'text-muted no-underline hover:text-heading hover:underline'
 const contentClass = 'mt-5'
@@ -52,11 +52,17 @@ const tagPaddingClass = COMMENTS && isItem ? 'mb-5' : ''
 const tagStandaloneClass = 'mt-5'
 const tagLinkClass =
   'inline-flex items-center rounded-2xl border border-transparent bg-transparent px-3 py-1 text-[13px] font-medium text-muted no-underline transition hover:border-[#93c5fd] hover:bg-[#ebf4ff] hover:text-heading hover:shadow-[0_6px_12px_rgba(59,130,246,0.08)] hover:no-underline'
-const commentsClass = 'mt-5 border-t border-line pt-4'
+const commentsClass = 'tg-comments mt-5 border-t border-line pt-4'
 const getTagHref = (tag: string) => `/search/result?q=${encodeURIComponent(`#${tag}`)}`
 ---
 
-<article class={articleClass} style={{ 'view-transition-name': `post-${post.id}` }}>
+<article
+  class={articleClass}
+  data-read-post
+  data-post-id={post.id}
+  data-read-state="unknown"
+  style={{ 'view-transition-name': `post-${post.id}` }}
+>
   <header class={timeBoxClass}>
     <span class={timeDotClass} aria-hidden="true"></span>
     <p class={timeTextClass}>
