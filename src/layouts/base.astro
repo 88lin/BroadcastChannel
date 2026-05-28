@@ -188,7 +188,7 @@ const topNavWrapClass = 'mx-3 pt-4 sm:mx-5 md:fixed md:left-0 md:right-0 md:top-
 const topNavClass =
   'site-top-nav mx-auto flex w-full max-w-[920px] min-w-0 flex-col gap-3 overflow-hidden rounded-[26px] px-3 py-3 sm:px-4 md:h-[52px] md:flex-row md:items-center md:justify-between md:gap-4 md:py-2 md:pl-4 md:pr-2'
 const topNavBrandClass =
-  'site-top-brand inline-flex w-full min-w-0 items-center gap-2 rounded-full px-1.5 py-1 text-[15px] font-semibold leading-none text-heading no-underline hover:no-underline md:w-auto md:shrink-0'
+  'site-top-brand inline-flex max-w-full min-w-0 self-start items-center gap-2 rounded-full px-1.5 py-1 text-[15px] font-semibold leading-none text-heading no-underline hover:no-underline md:self-auto md:shrink-0'
 const topNavLogoClass = 'h-7 w-7 shrink-0 rounded-full border border-line bg-code object-cover shadow-soft'
 const topNavBrandTextClass = 'truncate'
 const topNavGroupClass = 'flex w-full min-w-0 items-center gap-1.5 sm:justify-center md:w-auto md:flex-none'
@@ -375,6 +375,123 @@ const searchLabelText = 'Search'
         <img {...backToTopIcon} class={backToTopIconClass} alt="" />
       </a>
     </div>
+    <script is:inline>
+      ;(() => {
+        const storageKey = 'broadcast-channel:read-posts:v1'
+        const visibleDelay = 260
+        const memoryStore = new Set()
+        const state = (window.__broadcastReadState ||= {
+          cards: [],
+          timers: new Map(),
+          bound: false,
+          scheduled: false,
+        })
+
+        function readStore() {
+          const storedValue = localStorage.getItem(storageKey)
+          if (!storedValue) {
+            return new Set(memoryStore)
+          }
+
+          return new Set(storedValue.split('\n').filter(Boolean))
+        }
+
+        function writeStore(store) {
+          memoryStore.clear()
+          store.forEach((postId) => memoryStore.add(postId))
+          localStorage.setItem(storageKey, Array.from(store).join('\n'))
+        }
+
+        function markRead(card, store) {
+          const postId = card.dataset.postId
+          if (!postId) {
+            return
+          }
+
+          if (!store.has(postId)) {
+            store.add(postId)
+            writeStore(store)
+          }
+
+          card.dataset.readState = 'read'
+        }
+
+        function initReadStates() {
+          const cards = Array.from(document.querySelectorAll('[data-read-post][data-post-id]'))
+          if (!cards.length) {
+            return
+          }
+
+          const store = readStore()
+
+          state.timers.forEach((timer) => window.clearTimeout(timer))
+          state.timers.clear()
+          state.cards = cards
+
+          cards.forEach((card) => {
+            card.dataset.readState = store.has(card.dataset.postId) ? 'read' : 'unread'
+          })
+
+          checkVisibleCards(store)
+        }
+
+        function checkVisibleCards(store = readStore()) {
+          const viewportHeight = window.innerHeight || document.documentElement.clientHeight
+          const readLine = Math.max(120, viewportHeight * 0.42)
+
+          state.cards.forEach((card) => {
+            if (card.dataset.readState === 'read') {
+              return
+            }
+
+            const rect = card.getBoundingClientRect()
+            const isPastReadLine = rect.top <= readLine && rect.bottom >= 0
+
+            if (!isPastReadLine) {
+              const timer = state.timers.get(card)
+              if (timer) {
+                window.clearTimeout(timer)
+                state.timers.delete(card)
+              }
+              return
+            }
+
+            if (state.timers.has(card)) {
+              return
+            }
+
+            const timer = window.setTimeout(() => {
+              markRead(card, store)
+              state.timers.delete(card)
+            }, visibleDelay)
+
+            state.timers.set(card, timer)
+          })
+        }
+
+        function scheduleVisibleCheck() {
+          if (state.scheduled) {
+            return
+          }
+
+          state.scheduled = true
+          window.requestAnimationFrame(() => {
+            state.scheduled = false
+            checkVisibleCards()
+          })
+        }
+
+        if (!state.bound) {
+          document.addEventListener('DOMContentLoaded', initReadStates, { once: true })
+          document.addEventListener('astro:page-load', initReadStates)
+          window.addEventListener('scroll', scheduleVisibleCheck, { passive: true })
+          window.addEventListener('resize', scheduleVisibleCheck)
+          state.bound = true
+        }
+
+        initReadStates()
+      })()
+    </script>
     <Fragment set:html={FOOTER_INJECT} />
   </body>
 </html>

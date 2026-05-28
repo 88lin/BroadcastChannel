@@ -542,13 +542,24 @@
       font-size: 18px;
       font-weight: 400;
       line-height: 32px;
-      background: rgba(195, 233, 250, 0.92);
-      border: 0.8px solid rgba(55, 53, 47, 0.09);
+      color: rgb(64, 43, 82);
+      background:
+        linear-gradient(180deg, rgba(250, 239, 255, 0.96), rgba(237, 226, 255, 0.94)),
+        radial-gradient(circle at 12% 0%, rgba(244, 194, 255, 0.38), transparent 48%);
+      border: 1px solid rgba(168, 139, 250, 0.24);
       padding: 16px 36px 16px 16px;
       border-radius: 14px;
-      box-shadow: none;
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.78) inset,
+        0 10px 22px rgba(139, 92, 246, 0.08);
       position: relative;
       min-height: 3.6em;
+    }
+
+    .tg-expandable::selection,
+    .tg-expandable *::selection {
+      background: rgb(168, 85, 247);
+      color: rgb(255, 250, 255);
     }
 
     .tg-expandable__checkbox {
@@ -857,5 +868,11 @@
       box-shadow: none;
       object-fit: contain;
     }
+  }
+
+  .tg-comments iframe {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
   }
 }
