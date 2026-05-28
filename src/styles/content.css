@@ -167,14 +167,7 @@
       text-decoration-color: rgba(33, 150, 243, 0.48);
       text-decoration-thickness: 1px;
       text-underline-offset: 0.16em;
-      background: linear-gradient(
-          104deg,
-          transparent 0%,
-          var(--content-link-wash) 12%,
-          var(--content-link-wash) 88%,
-          transparent 100%
-        )
-        0 82% / 100% 0.58em no-repeat;
+      background: linear-gradient(var(--content-link-wash), var(--content-link-wash)) 0 84% / 100% 0.52em no-repeat;
       transition:
         color 0.18s ease,
         background-size 0.18s ease,
@@ -185,14 +178,7 @@
       color: var(--content-accent-hover);
       text-decoration-color: currentColor;
       text-decoration-thickness: 1.5px;
-      background: linear-gradient(
-          104deg,
-          transparent 0%,
-          rgba(235, 244, 255, 0.95) 10%,
-          rgba(235, 244, 255, 0.95) 90%,
-          transparent 100%
-        )
-        0 60% / 100% 1.18em no-repeat;
+      background: linear-gradient(rgba(235, 244, 255, 0.95), rgba(235, 244, 255, 0.95)) 0 60% / 100% 1.18em no-repeat;
     }
 
     a strong,
@@ -398,6 +384,7 @@
     .tgme_widget_message_link_preview {
       margin-top: 16px;
       display: none;
+      text-decoration: none !important;
 
       .link_preview_site_name,
       .link_preview_title,
