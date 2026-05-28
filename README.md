@@ -153,6 +153,9 @@ RSS_BEAUTIFY=true
 ## 过滤所有包含图片的帖子（常用于过滤广告）
 FILTER_IMAGES=true
 
+## 过滤 Telegram 文件消息
+FILTER_FILES=true
+
 ## 过滤包含特定关键词的帖子，使用英文逗号分割
 AD_KEYWORDS=广告,推广,赞助
 ```
