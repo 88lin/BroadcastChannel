@@ -61,6 +61,10 @@
     body {
       padding-top: 6.25rem;
     }
+
+    body.has-announcement {
+      padding-top: 0;
+    }
   }
 
   img {
@@ -98,8 +102,8 @@
   }
 
   ::selection {
-    background: rgb(246, 198, 219);
-    color: rgb(74, 34, 62);
+    background: rgb(185, 221, 255);
+    color: rgb(6, 19, 30);
   }
 
   .content blockquote::selection,
@@ -127,18 +131,25 @@
 @layer components {
   /* ── Scrolling announcement banner ── */
   .announcement-bar {
-    --bar-bg: linear-gradient(90deg, oklch(0.24 0.012 250), oklch(0.31 0.014 250));
-    --bar-text: oklch(0.985 0.006 86);
+    --bar-bg:
+      linear-gradient(90deg, rgba(219, 234, 254, 0.86), rgba(235, 244, 255, 0.92), rgba(219, 234, 254, 0.86)),
+      radial-gradient(circle at 10% 50%, rgba(147, 197, 253, 0.35), transparent 34%),
+      radial-gradient(circle at 90% 45%, rgba(96, 165, 250, 0.22), transparent 36%);
+    --bar-text: rgb(30, 96, 158);
     background: var(--bar-bg);
     color: var(--bar-text);
     overflow: hidden;
     white-space: nowrap;
     font-size: 13px;
-    line-height: 32px;
-    height: 32px;
+    font-weight: 600;
+    line-height: 34px;
+    height: 34px;
     position: relative;
     user-select: none;
-    z-index: 100;
+    border-bottom: 1px solid rgba(147, 197, 253, 0.24);
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.08);
+    backdrop-filter: blur(10px) saturate(1.08);
+    -webkit-backdrop-filter: blur(10px) saturate(1.08);
   }
 
   .announcement-bar::before,
@@ -154,12 +165,12 @@
 
   .announcement-bar::before {
     left: 0;
-    background: linear-gradient(to right, var(--color-accent), transparent);
+    background: linear-gradient(to right, rgba(219, 234, 254, 0.98), transparent);
   }
 
   .announcement-bar::after {
     right: 0;
-    background: linear-gradient(to left, var(--color-accent), transparent);
+    background: linear-gradient(to left, rgba(219, 234, 254, 0.98), transparent);
   }
 
   .announcement-track {
