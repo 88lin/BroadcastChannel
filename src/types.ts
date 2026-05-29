@@ -26,6 +26,7 @@ export interface ChannelInfo {
   description: string
   descriptionHTML: string | null
   avatar: string | undefined
+  avatarNeedsProxy?: boolean
   /** Optional SEO override injected by page routes */
   seo?: SeoMeta
   beforeCursor?: string

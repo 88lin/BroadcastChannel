@@ -6,6 +6,15 @@ import { getChannelInfo, getChannelPost } from '../../lib/telegram'
 import { siteTitleStyle } from '../../lib/ui'
 
 const { SITE_URL } = Astro.locals
+const absoluteSiteUrl = SITE_URL.startsWith('http') ? SITE_URL : new URL(SITE_URL, Astro.url.origin).toString()
+
+function toSiteAssetUrl(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined
+  }
+
+  return value.startsWith('http') ? value : new URL(value, absoluteSiteUrl).toString()
+}
 
 const channelInfo = await getChannelInfo(Astro)
 
@@ -14,6 +23,12 @@ if (!Astro.params.id) {
 }
 
 const post = await getChannelPost(Astro, Astro.params.id)
+const staticProxy = getEnv(import.meta.env, Astro, 'STATIC_PROXY') ?? '/static/'
+const avatarUrl = channelInfo.avatarNeedsProxy
+  ? channelInfo.avatar?.startsWith('http')
+    ? `${staticProxy}${channelInfo.avatar}`
+    : undefined
+  : toSiteAssetUrl(channelInfo.avatar)
 
 const channel = {
   ...(channelInfo || {}),
@@ -35,7 +50,6 @@ if (!post) {
   Astro.response.status = 404
 }
 
-const staticProxy = getEnv(import.meta.env, Astro, 'STATIC_PROXY') ?? '/static/'
 const breadcrumbClass = 'mb-5 py-[10px] font-semibold'
 const breadcrumbListClass = 'm-0 flex list-none items-center p-0'
 const breadcrumbLinkClass = 'inline-flex items-center no-underline'
@@ -57,7 +71,7 @@ const notFoundMessageClass =
           <li>
             <a href={SITE_URL} class={breadcrumbLinkClass} title={channel?.title}>
               <img
-                src={channel?.avatar?.startsWith('http') ? staticProxy + channel?.avatar : voidFile.src}
+                src={avatarUrl ?? voidFile.src}
                 alt={channel?.title}
                 loading="eager"
                 width="20"

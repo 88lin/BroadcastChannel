@@ -94,6 +94,11 @@ CHANNEL=miantiao_me
 LOCALE=zh-cn
 TIMEZONE=Asia/Shanghai
 
+## 站点品牌信息，留空时使用 Telegram 频道信息
+SITE_NAME=茉灵智库
+SITE_LOGO=https://example.com/logo.png
+SITE_DESCRIPTION=聚合 Telegram 频道内容的微型知识库
+
 ## 社交媒体用户名
 TELEGRAM=miantiao-me
 TWITTER=miantiao-me
@@ -159,6 +164,21 @@ FILTER_FILES=true
 ## 过滤包含特定关键词的帖子，使用英文逗号分割
 AD_KEYWORDS=广告,推广,赞助
 ```
+
+## 品牌自定义
+
+默认情况下，站点标题和 logo 会从 Telegram 主频道读取。如果你不想使用频道名称和频道头像，可以配置站点品牌信息：
+
+```env
+SITE_NAME=茉灵智库
+SITE_LOGO=https://example.com/logo.png
+SITE_DESCRIPTION=聚合 Telegram 频道内容的微型知识库
+```
+
+- `SITE_NAME` 会覆盖导航标题、SEO 标题、RSS 标题和 manifest 名称。
+- `SITE_LOGO` 会覆盖导航 logo、单篇页 breadcrumb logo、分享图和 manifest 图标。支持完整 URL，也支持站内路径，例如 `/logo.png`。
+- `SITE_DESCRIPTION` 会覆盖 SEO 描述和 RSS 描述。
+- `HIDE_DESCRIPTION` 保持原行为，只控制是否展示 Telegram 频道简介；它不会被 `SITE_DESCRIPTION` 替代。
 
 ## 🙋🏻 常问问题
 
