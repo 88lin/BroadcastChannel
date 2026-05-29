@@ -9,17 +9,23 @@
     --content-shadow: rgba(127, 127, 127, 0.32);
     word-break: break-word;
     color: var(--color-heading);
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 400;
-    line-height: 32px;
+    line-height: 26px;
 
     p {
-      margin: 0.9em 0;
+      margin: 0.72em 0;
+    }
+
+    br + br {
+      display: block;
+      content: '';
+      margin-top: -0.35em;
     }
 
     ul,
     ol {
-      margin: 1em 0;
+      margin: 0.85em 0;
       padding-inline-start: 1.5em;
     }
 
@@ -59,7 +65,7 @@
     }
 
     h4 {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 700;
       line-height: 1.45;
       margin-top: 1.35em;
@@ -472,11 +478,11 @@
       --quote-bg: rgb(226, 246, 255);
       --quote-accent: rgb(56, 189, 248);
       --quote-selection: rgb(125, 211, 252);
-      margin: 18px 0;
+      margin: 14px 0;
       color: var(--color-heading);
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 400;
-      line-height: 32px;
+      line-height: 26px;
       background: var(--quote-bg);
       border: 0.8px dashed var(--quote-accent);
       border-left: 4.8px solid var(--quote-accent);
@@ -525,10 +531,10 @@
     }
 
     .tg-expandable {
-      margin: 18px 0;
-      font-size: 18px;
+      margin: 14px 0;
+      font-size: 16px;
       font-weight: 400;
-      line-height: 32px;
+      line-height: 26px;
       color: rgb(64, 43, 82);
       background:
         linear-gradient(180deg, rgba(250, 239, 255, 0.96), rgba(237, 226, 255, 0.94)),
