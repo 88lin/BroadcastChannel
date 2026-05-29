@@ -11,13 +11,13 @@
     'Noto Sans SC', 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
     'Noto Color Emoji';
   --breakpoint-sm: 37.5rem;
-  --color-paper: rgb(247, 249, 254);
+  --color-paper: rgb(253, 253, 247);
   --color-ink: rgb(0, 0, 0);
   --color-heading: rgb(0, 0, 0);
   --color-accent: rgb(33, 150, 243);
   --color-accent-soft: rgb(235, 244, 255);
-  --color-surface: rgb(255, 255, 255);
-  --color-code: rgba(135, 131, 120, 0.1);
+  --color-surface: oklch(0.995 0.006 98);
+  --color-code: oklch(0.955 0.01 92 / 0.72);
   --color-muted: rgb(75, 85, 99);
   --color-link: var(--color-accent);
   --color-link-hover: rgb(30, 115, 190);
