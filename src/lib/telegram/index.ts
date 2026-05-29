@@ -125,6 +125,25 @@ function getRequiredEnv(context: RequestContext, name: string): string {
   return value
 }
 
+function getOptionalStringEnv(context: RequestContext, name: string): string | undefined {
+  const value = getEnv(import.meta.env, context, name)
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function applySiteBranding(channel: ChannelInfo, context: RequestContext): ChannelInfo {
+  const siteName = getOptionalStringEnv(context, 'SITE_NAME')
+  const siteLogo = getOptionalStringEnv(context, 'SITE_LOGO')
+  const siteDescription = getOptionalStringEnv(context, 'SITE_DESCRIPTION')
+
+  return {
+    ...channel,
+    title: siteName ?? channel.title,
+    description: siteDescription ?? channel.description,
+    avatar: siteLogo ?? channel.avatar,
+    avatarNeedsProxy: siteLogo ? false : channel.avatarNeedsProxy,
+  }
+}
+
 function normalizeEmoji(emoji: string): string {
   const emojiMap: Record<string, string> = {
     '\u2764': '\u2764\uFE0F',
@@ -1085,14 +1104,17 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
     description: primaryChannelInfo.description || '',
     descriptionHTML: primaryChannelInfo.descriptionHTML || null,
     avatar: primaryChannelInfo.avatar,
+    avatarNeedsProxy: true,
     beforeCursor,
     afterCursor,
   }
 
-  cache.set(cacheKey, channel)
+  const brandedChannel = applySiteBranding(channel, context)
+
+  cache.set(cacheKey, brandedChannel)
 
   return {
-    channel,
+    channel: cloneCacheValue(brandedChannel),
     pageSize: TIMELINE_PAGE_SIZE,
   }
 }
@@ -1181,11 +1203,14 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
     description: primaryChannelInfo.description || '',
     descriptionHTML: primaryChannelInfo.descriptionHTML || null,
     avatar: primaryChannelInfo.avatar,
+    avatarNeedsProxy: true,
     beforeCursor: finalBeforeCursor,
     afterCursor: finalAfterCursor,
     sitemapAfterCursor: nextAfterCursors.join('-'),
   }
 
-  cache.set(cacheKey, channelInfo)
-  return cloneCacheValue(channelInfo)
+  const brandedChannelInfo = applySiteBranding(channelInfo, context)
+
+  cache.set(cacheKey, brandedChannelInfo)
+  return cloneCacheValue(brandedChannelInfo)
 }

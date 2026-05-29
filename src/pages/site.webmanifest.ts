@@ -11,9 +11,9 @@ export const GET: APIRoute = async (context) => {
   const absoluteSiteUrl = SITE_URL.startsWith('http') ? SITE_URL : new URL(SITE_URL, context.url.origin).toString()
   const staticProxy = getEnv(import.meta.env, context, 'STATIC_PROXY') ?? '/static/'
   const siteName = channel.title || FALLBACK_MANIFEST_NAME
-  const avatarIcon = channel.avatar?.startsWith('http')
-    ? new URL(`${staticProxy}${channel.avatar}`, absoluteSiteUrl).toString()
-    : null
+  const avatarIcon = channel.avatarNeedsProxy
+    ? channel.avatar?.startsWith('http') ? new URL(`${staticProxy}${channel.avatar}`, absoluteSiteUrl).toString() : null
+    : channel.avatar ? new URL(channel.avatar, absoluteSiteUrl).toString() : null
 
   const manifest = {
     name: siteName,
