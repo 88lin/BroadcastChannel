@@ -20,6 +20,14 @@ function normalizePathname(pathname: string): string {
   return pathname.replace(/\/$/, '') || '/'
 }
 
+function toSiteAssetUrl(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined
+  }
+
+  return value.startsWith('http') ? value : new URL(value, absoluteSiteUrl).toString()
+}
+
 const absoluteSiteUrl = SITE_URL.startsWith('http') ? SITE_URL : new URL(SITE_URL, Astro.url.origin).toString()
 const canonicalUrl = new URL(Astro.url.pathname, absoluteSiteUrl)
 const siteRootPathname = normalizePathname(new URL(absoluteSiteUrl).pathname)
@@ -32,14 +40,25 @@ const { pathname } = new URL(canonical)
 const currentPathname = normalizePathname(pathname)
 const twitterEnv = getEnv(import.meta.env, Astro, 'TWITTER')
 const twitter = typeof twitterEnv === 'string' ? twitterEnv : undefined
+const staticProxy = getEnv(import.meta.env, Astro, 'STATIC_PROXY') ?? '/static/'
 const pageTitle = seo?.title?.trim()
 const siteTitle = channel?.title ?? ''
 const seoDescription = seo?.text ?? channel?.description
-const shareImage = channel?.avatar
-  ? `https://wsrv.nl/?w=1200&h=630&fit=cover&url=ssl:${channel.avatar.replace(/^https?:\/\//, '')}`
+const avatarUrl = channel?.avatarNeedsProxy
+  ? channel.avatar?.startsWith('http')
+    ? `${staticProxy}${channel.avatar}`
+    : undefined
+  : toSiteAssetUrl(channel?.avatar)
+const avatarImageSource = channel?.avatarNeedsProxy ? channel.avatar : toSiteAssetUrl(channel?.avatar)
+const shareImage = avatarImageSource?.startsWith('http')
+  ? channel?.avatarNeedsProxy
+    ? `https://wsrv.nl/?w=1200&h=630&fit=cover&url=ssl:${avatarImageSource.replace(/^https?:\/\//, '')}`
+    : avatarImageSource
   : new URL('favicon.ico', absoluteSiteUrl).toString()
-const favicon = channel?.avatar
-  ? `https://wsrv.nl/?w=64&h=64&fit=cover&mask=circle&url=ssl:${channel.avatar.replace(/^https?:\/\//, '')}`
+const favicon = avatarImageSource?.startsWith('http')
+  ? channel?.avatarNeedsProxy
+    ? `https://wsrv.nl/?w=64&h=64&fit=cover&mask=circle&url=ssl:${avatarImageSource.replace(/^https?:\/\//, '')}`
+    : avatarImageSource
   : new URL('favicon.svg', absoluteSiteUrl).toString()
 const hasCustomTitle = Boolean(pageTitle && pageTitle !== siteTitle)
 const isArticle = /\/posts\/[^/]+$/.test(pathname)
@@ -85,7 +104,6 @@ const seoParams = {
 const googleSearchSiteEnv = getEnv(import.meta.env, Astro, 'GOOGLE_SEARCH_SITE')
 const GOOGLE_SEARCH_SITE = typeof googleSearchSiteEnv === 'string' ? googleSearchSiteEnv : undefined
 const searchAction = GOOGLE_SEARCH_SITE ? 'https://www.google.com/search' : `${SITE_URL}search/result`
-const staticProxy = getEnv(import.meta.env, Astro, 'STATIC_PROXY') ?? '/static/'
 const PODCASRT = getEnv(import.meta.env, Astro, 'PODCASRT')
 const TWITTER = getEnv(import.meta.env, Astro, 'TWITTER')
 const GITHUB = getEnv(import.meta.env, Astro, 'GITHUB')
@@ -257,7 +275,7 @@ const searchLabelText = 'Search'
       <div class={topNavClass}>
         <a href={SITE_URL} title={channel?.title} class={topNavBrandClass}>
           <img
-            src={channel?.avatar?.startsWith('http') ? staticProxy + channel?.avatar : voidFile.src}
+            src={avatarUrl ?? voidFile.src}
             alt=""
             loading="eager"
             fetchpriority="high"
