@@ -119,7 +119,7 @@ const staleCache = new LRUCache<string, CacheValue>({
 const inFlightRequests = new Map<string, Promise<CacheValue | null>>()
 
 const TIMELINE_PAGE_SIZE = 24
-const EAGER_IMAGE_LIMIT = 2
+const EAGER_IMAGE_LIMIT = 4
 
 function cloneCacheValue<T extends CacheValue>(value: T): T {
   return structuredClone(value)
