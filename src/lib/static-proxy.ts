@@ -25,5 +25,15 @@ export async function createStaticProxyResponse(request: Request, rawTarget: str
   }
 
   const response = await fetch(target.toString(), request)
-  return new Response(response.body, response)
+  const headers = new Headers(response.headers)
+
+  if (response.status === 200) {
+    headers.set('Cache-Control', 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000')
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
 }

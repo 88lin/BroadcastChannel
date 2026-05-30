@@ -39,7 +39,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
 
     if (!response.headers.has('Cache-Control')) {
-      response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=300')
+      response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=1800, stale-while-revalidate=86400')
     }
   }
   return response

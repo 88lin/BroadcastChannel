@@ -101,13 +101,25 @@ interface PostFilterConfig {
   adRegex: RegExp | null
 }
 
+const FRESH_CACHE_TTL = 1000 * 60 * 5
+const STALE_CACHE_TTL = 1000 * 60 * 60 * 24
+
 const cache = new LRUCache<string, CacheValue>({
-  ttl: 1000 * 60 * 5,
+  ttl: FRESH_CACHE_TTL,
   maxSize: 50 * 1024 * 1024,
   sizeCalculation: item => JSON.stringify(item).length,
 })
 
-const TIMELINE_PAGE_SIZE = 40
+const staleCache = new LRUCache<string, CacheValue>({
+  ttl: STALE_CACHE_TTL,
+  maxSize: 50 * 1024 * 1024,
+  sizeCalculation: item => JSON.stringify(item).length,
+})
+
+const inFlightRequests = new Map<string, Promise<CacheValue | null>>()
+
+const TIMELINE_PAGE_SIZE = 24
+const EAGER_IMAGE_LIMIT = 2
 
 function cloneCacheValue<T extends CacheValue>(value: T): T {
   return structuredClone(value)
@@ -115,6 +127,46 @@ function cloneCacheValue<T extends CacheValue>(value: T): T {
 
 function isChannelInfo(value: CacheValue): value is ChannelInfo {
   return 'posts' in value
+}
+
+function setCacheValue(key: string, value: CacheValue): void {
+  cache.set(key, value)
+  staleCache.set(key, value)
+}
+
+async function loadCachedValue<T extends CacheValue | null>(
+  key: string,
+  loadValue: () => Promise<T>,
+): Promise<T> {
+  const existingRequest = inFlightRequests.get(key) as Promise<T> | undefined
+  if (existingRequest) {
+    return existingRequest
+  }
+
+  const request = loadValue()
+    .then((value) => {
+      if (value) {
+        setCacheValue(key, value)
+      }
+      return value
+    })
+    .catch((error) => {
+      const staleValue = staleCache.get(key) as T | undefined
+      if (staleValue) {
+        console.warn('Serving stale cache after fetch failure', {
+          key,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        return staleValue
+      }
+      throw error
+    })
+    .finally(() => {
+      inFlightRequests.delete(key)
+    })
+
+  inFlightRequests.set(key, request)
+  return request
 }
 
 function getRequiredEnv(context: RequestContext, name: string): string {
@@ -177,7 +229,7 @@ function escapeHtmlAttribute(value: string): string {
 }
 
 function getImageLoading(index: number): 'eager' | 'lazy' {
-  return index > 15 ? 'lazy' : 'eager'
+  return index < EAGER_IMAGE_LIMIT ? 'eager' : 'lazy'
 }
 
 function getStyleDimension(style: string | undefined, property: 'width' | 'height'): number | null {
@@ -260,7 +312,7 @@ async function hydrateTgEmoji($: CheerioAPI, content: MessageSelection, options:
     const imageUrl = getCustomEmojiImage(emojiId, staticProxy)
 
     if (imageUrl) {
-      $(emojiNode).replaceWith(`<img class="tg-emoji" src="${imageUrl}" alt="" loading="lazy" width="20" height="20" />`)
+      $(emojiNode).replaceWith(`<img class="tg-emoji" src="${imageUrl}" alt="" loading="lazy" decoding="async" width="20" height="20" />`)
     }
   }
 }
@@ -276,8 +328,8 @@ function getVideoStickers($: CheerioAPI, message: MessageSelection, options: Ind
 
     fragments.push(`
     <div style="background-image: none; width: 256px;">
-      <video src="${videoSrc ? staticProxy + videoSrc : ''}" width="256" height="256" aria-label="Video sticker" preload muted autoplay loop playsinline disablepictureinpicture>
-        <img class="sticker" src="${imageSrc ? staticProxy + imageSrc : ''}" alt="Video sticker" width="256" height="256" loading="${loading}" />
+      <video src="${videoSrc ? staticProxy + videoSrc : ''}" width="256" height="256" aria-label="Video sticker" preload="metadata" muted autoplay loop playsinline disablepictureinpicture>
+        <img class="sticker" src="${imageSrc ? staticProxy + imageSrc : ''}" alt="Video sticker" width="256" height="256" loading="${loading}" decoding="async" />
       </video>
     </div>
     `)
@@ -295,7 +347,7 @@ function getImageStickers($: CheerioAPI, message: MessageSelection, options: Ind
     const imageSrc = $(imageNode).attr('data-webp')
 
     fragments.push(
-      `<img class="sticker" src="${imageSrc ? staticProxy + imageSrc : ''}" style="width: 256px;" alt="Sticker" width="256" height="256" loading="${loading}" />`,
+      `<img class="sticker" src="${imageSrc ? staticProxy + imageSrc : ''}" style="width: 256px;" alt="Sticker" width="256" height="256" loading="${loading}" decoding="async" />`,
     )
   }
 
@@ -327,7 +379,7 @@ function getImages($: CheerioAPI, message: MessageSelection, options: MessageAss
         popovertargetaction="show"
         aria-label="${safePreviewLabel}"
       >
-        <img src="${staticProxy + imageUrl}" alt="${safeTitle}" width="${width}" height="${height}" loading="${loading}" />
+        <img src="${staticProxy + imageUrl}" alt="${safeTitle}" width="${width}" height="${height}" loading="${loading}" decoding="async" />
       </button>
       <div class="modal" id="${popoverId}" popover aria-label="Image preview">
         <button
@@ -345,7 +397,7 @@ function getImages($: CheerioAPI, message: MessageSelection, options: MessageAss
           aria-label="${safeCloseLabel}"
         >&times;</button>
         <div class="modal__surface">
-          <img class="modal-img" src="${staticProxy + imageUrl}" alt="${safeTitle}" width="${width}" height="${height}" loading="lazy" />
+          <img class="modal-img" src="${staticProxy + imageUrl}" alt="${safeTitle}" width="${width}" height="${height}" loading="lazy" decoding="async" />
         </div>
       </div>
     `)
@@ -360,7 +412,7 @@ function getImages($: CheerioAPI, message: MessageSelection, options: MessageAss
 }
 
 function getVideo($: CheerioAPI, message: MessageSelection, options: IndexedStaticProxyOptions): string {
-  const { staticProxy = '', index = 0 } = options
+  const { staticProxy = '' } = options
   const video = message.find('.tgme_widget_message_video_wrap video')
   const videoSrc = video.attr('src')
 
@@ -370,7 +422,7 @@ function getVideo($: CheerioAPI, message: MessageSelection, options: IndexedStat
 
   video
     .attr('controls', '')
-    .attr('preload', index > 15 ? 'metadata' : 'auto')
+    .attr('preload', 'metadata')
     .attr('playsinline', '')
     .attr('webkit-playsinline', '')
 
@@ -383,7 +435,7 @@ function getVideo($: CheerioAPI, message: MessageSelection, options: IndexedStat
 
   roundVideo
     .attr('controls', '')
-    .attr('preload', index > 15 ? 'metadata' : 'auto')
+    .attr('preload', 'metadata')
     .attr('playsinline', '')
     .attr('webkit-playsinline', '')
 
@@ -418,7 +470,7 @@ function getLinkPreview($: CheerioAPI, message: MessageSelection, options: Index
   const imageSrc = previewUrl ? staticProxy + previewUrl : ''
 
   image.replaceWith(
-    `<img class="link_preview_image" alt="${safeTitle}" src="${imageSrc}" width="1200" height="630" loading="${loading}" />`,
+    `<img class="link_preview_image" alt="${safeTitle}" src="${imageSrc}" width="1200" height="630" loading="${loading}" decoding="async" />`,
   )
 
   return $.html(link)
@@ -671,42 +723,89 @@ export async function getChannelPost(context: RequestContext, id: string): Promi
     return cloneCacheValue(cachedResult)
   }
 
-  const channelsStr = getRequiredEnv(context, 'CHANNEL')
-  const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
-  const isMultiChannel = channels.length > 1
+  const loadedPost = await loadCachedValue<Post | null>(cacheKey, async () => {
+    const channelsStr = getRequiredEnv(context, 'CHANNEL')
+    const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
+    const isMultiChannel = channels.length > 1
 
-  let targetChannel = channels[0]
-  let targetId = id
+    let targetChannel = channels[0]
+    let targetId = id
 
-  if (isMultiChannel && id.includes('-')) {
-    const parts = id.split('-')
-    const potentialChannel = parts[0]
-    const hasPrefixedId = parts.length > 1 && Boolean(parts.slice(1).join('-'))
+    if (isMultiChannel && id.includes('-')) {
+      const parts = id.split('-')
+      const potentialChannel = parts[0]
+      const hasPrefixedId = parts.length > 1 && Boolean(parts.slice(1).join('-'))
 
-    if (!hasPrefixedId || !channels.includes(potentialChannel) || potentialChannel === channels[0]) {
+      if (!hasPrefixedId || !channels.includes(potentialChannel) || potentialChannel === channels[0]) {
+        return null
+      }
+
+      targetChannel = potentialChannel
+      targetId = parts.slice(1).join('-')
+    }
+
+    const isPrimaryChannel = targetChannel === channels[0]
+
+    const { $, channel, staticProxy, reactionsEnabled } = await loadChannelDocument(context, targetChannel, { id: targetId })
+    const post = await extractPost($, null, { channel, staticProxy, reactionsEnabled, isMultiChannel, isPrimaryChannel, allChannels: channels })
+
+    if (!post.id || !post.content) {
       return null
     }
 
-    targetChannel = potentialChannel
-    targetId = parts.slice(1).join('-')
-  }
+    return post
+  })
 
-  const isPrimaryChannel = targetChannel === channels[0]
-
-  const { $, channel, staticProxy, reactionsEnabled } = await loadChannelDocument(context, targetChannel, { id: targetId })
-  const post = await extractPost($, null, { channel, staticProxy, reactionsEnabled, isMultiChannel, isPrimaryChannel, allChannels: channels })
-
-  if (!post.id || !post.content) {
-    return null
-  }
-
-  cache.set(cacheKey, post)
-  return cloneCacheValue(post)
+  return loadedPost ? cloneCacheValue(loadedPost) : null
 }
 
 function getChannels(context: RequestContext): string[] {
   const channelsStr = getRequiredEnv(context, 'CHANNEL')
   return channelsStr.split(',').map(c => c.trim()).filter(Boolean)
+}
+
+export async function getChannelSummary(context: RequestContext): Promise<ChannelInfo> {
+  const cacheKey = JSON.stringify({ scope: 'channel-summary' })
+  const cachedResult = cache.get(cacheKey)
+
+  if (cachedResult && isChannelInfo(cachedResult)) {
+    return cloneCacheValue(cachedResult)
+  }
+
+  const siteName = getOptionalStringEnv(context, 'SITE_NAME')
+  const siteLogo = getOptionalStringEnv(context, 'SITE_LOGO')
+  const siteDescription = getOptionalStringEnv(context, 'SITE_DESCRIPTION')
+
+  if (siteName && siteLogo && siteDescription) {
+    const brandedChannel: ChannelInfo = {
+      posts: [],
+      title: siteName,
+      description: siteDescription,
+      descriptionHTML: siteDescription,
+      avatar: siteLogo,
+      avatarNeedsProxy: false,
+    }
+
+    setCacheValue(cacheKey, brandedChannel)
+    return cloneCacheValue(brandedChannel)
+  }
+
+  const channel = await loadCachedValue<ChannelInfo>(cacheKey, async () => {
+    const [primaryChannel] = getChannels(context)
+    const { $, staticProxy } = await loadChannelDocument(context, primaryChannel)
+    const channelInfo: ChannelInfo = {
+      posts: [],
+      title: $('.tgme_channel_info_header_title').text(),
+      description: $('.tgme_channel_info_description').text(),
+      descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy })).html(),
+      avatar: $('.tgme_page_photo_image img').attr('src'),
+      avatarNeedsProxy: true,
+    }
+
+    return applySiteBranding(channelInfo, context)
+  })
+
+  return cloneCacheValue(channel)
 }
 
 function getPostFilterConfig(context: RequestContext): PostFilterConfig {
@@ -974,144 +1073,144 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
     }
   }
 
-  const channels = getChannels(context)
-  const filterConfig = getPostFilterConfig(context)
-  const payload = cursor ? decodeTimelineCursor(cursor) : { v: 2 }
-  if (cursor && (!payload.sources || payload.sources.length !== channels.length)) {
-    throw new Error('Invalid timeline cursor sources state')
-  }
+  const brandedChannel = await loadCachedValue<ChannelInfo>(cacheKey, async () => {
+    const channels = getChannels(context)
+    const filterConfig = getPostFilterConfig(context)
+    const payload = cursor ? decodeTimelineCursor(cursor) : { v: 2 }
+    if (cursor && (!payload.sources || payload.sources.length !== channels.length)) {
+      throw new Error('Invalid timeline cursor sources state')
+    }
 
-  if (cursor && (!payload.history || payload.history.some(entry => entry.length !== channels.length))) {
-    throw new Error('Invalid timeline cursor history state')
-  }
+    if (cursor && (!payload.history || payload.history.some(entry => entry.length !== channels.length))) {
+      throw new Error('Invalid timeline cursor history state')
+    }
 
-  const sources = payload.sources ?? getDefaultTimelineSources(channels)
-  const history = payload.history ?? []
-  const primaryChannelInfo: Partial<ChannelInfo> = {
-    title: '',
-    description: '',
-    descriptionHTML: null,
-    avatar: undefined,
-  }
-  const states: TimelineMergeState[] = (await Promise.all(
-    channels.map(async (channelName, channelIndex) => ({
-      page: await getTimelineSourcePage(
-        context,
-        channelName,
-        channelIndex,
-        sources[channelIndex],
-        channels,
-        filterConfig,
-        primaryChannelInfo,
-      ),
-      index: 0,
-    })),
-  ))
-  const posts: Post[] = []
+    const sources = payload.sources ?? getDefaultTimelineSources(channels)
+    const history = payload.history ?? []
+    const primaryChannelInfo: Partial<ChannelInfo> = {
+      title: '',
+      description: '',
+      descriptionHTML: null,
+      avatar: undefined,
+    }
+    const states: TimelineMergeState[] = (await Promise.all(
+      channels.map(async (channelName, channelIndex) => ({
+        page: await getTimelineSourcePage(
+          context,
+          channelName,
+          channelIndex,
+          sources[channelIndex],
+          channels,
+          filterConfig,
+          primaryChannelInfo,
+        ),
+        index: 0,
+      })),
+    ))
+    const posts: Post[] = []
 
-  async function advanceState(channelIndex: number): Promise<void> {
-    const state = states[channelIndex]
+    async function advanceState(channelIndex: number): Promise<void> {
+      const state = states[channelIndex]
 
-    while (state.index >= state.page.posts.length && !state.page.exhausted) {
-      state.page = await getTimelineSourcePage(
-        context,
-        channels[channelIndex],
-        channelIndex,
-        {
-          before: state.page.nextBefore,
+      while (state.index >= state.page.posts.length && !state.page.exhausted) {
+        state.page = await getTimelineSourcePage(
+          context,
+          channels[channelIndex],
+          channelIndex,
+          {
+            before: state.page.nextBefore,
+            offset: 0,
+          },
+          channels,
+          filterConfig,
+          primaryChannelInfo,
+        )
+        state.index = 0
+      }
+    }
+
+    await Promise.all(states.map((_state, index) => advanceState(index)))
+
+    while (posts.length < TIMELINE_PAGE_SIZE) {
+      let nextChannelIndex = -1
+      let nextPost: Post | undefined
+
+      for (let index = 0; index < states.length; index += 1) {
+        const candidate = states[index].page.posts[states[index].index]
+        if (!candidate) {
+          continue
+        }
+
+        if (!nextPost || compareTimelineEntries(candidate, nextPost, channels) < 0) {
+          nextPost = candidate
+          nextChannelIndex = index
+        }
+      }
+
+      if (nextChannelIndex === -1 || !nextPost) {
+        break
+      }
+
+      posts.push(nextPost)
+      states[nextChannelIndex].index += 1
+      await advanceState(nextChannelIndex)
+    }
+
+    const nextSources = states.map((state) => {
+      const remainingVisible = state.page.posts.length - state.index
+
+      if (remainingVisible > 0) {
+        return {
+          before: state.page.source.before,
+          offset: state.page.source.offset + state.index,
+        }
+      }
+
+      if (state.page.exhausted) {
+        return {
+          before: '0',
           offset: 0,
-        },
-        channels,
-        filterConfig,
-        primaryChannelInfo,
-      )
-      state.index = 0
-    }
-  }
-
-  await Promise.all(states.map((_state, index) => advanceState(index)))
-
-  while (posts.length < TIMELINE_PAGE_SIZE) {
-    let nextChannelIndex = -1
-    let nextPost: Post | undefined
-
-    for (let index = 0; index < states.length; index += 1) {
-      const candidate = states[index].page.posts[states[index].index]
-      if (!candidate) {
-        continue
+        }
       }
 
-      if (!nextPost || compareTimelineEntries(candidate, nextPost, channels) < 0) {
-        nextPost = candidate
-        nextChannelIndex = index
-      }
-    }
-
-    if (nextChannelIndex === -1 || !nextPost) {
-      break
-    }
-
-    posts.push(nextPost)
-    states[nextChannelIndex].index += 1
-    await advanceState(nextChannelIndex)
-  }
-
-  const nextSources = states.map((state) => {
-    const remainingVisible = state.page.posts.length - state.index
-
-    if (remainingVisible > 0) {
       return {
-        before: state.page.source.before,
-        offset: state.page.source.offset + state.index,
-      }
-    }
-
-    if (state.page.exhausted) {
-      return {
-        before: '0',
+        before: state.page.nextBefore,
         offset: 0,
       }
+    })
+
+    const hasMoreBefore = states.some((state) => {
+      const remainingVisible = state.page.posts.length - state.index
+      return remainingVisible > 0 || !state.page.exhausted
+    })
+    const beforeCursor = hasMoreBefore
+      ? encodeTimelineCursor({
+          v: 2,
+          sources: nextSources,
+          history: history.concat([sources]),
+        })
+      : undefined
+    const previousSources = history.at(-1)
+    const afterCursor = previousSources
+      ? encodeTimelineCursor({
+          v: 2,
+          sources: previousSources,
+          history: history.slice(0, -1),
+        })
+      : undefined
+    const channel: ChannelInfo = {
+      posts,
+      title: primaryChannelInfo.title || '',
+      description: primaryChannelInfo.description || '',
+      descriptionHTML: primaryChannelInfo.descriptionHTML || null,
+      avatar: primaryChannelInfo.avatar,
+      avatarNeedsProxy: true,
+      beforeCursor,
+      afterCursor,
     }
 
-    return {
-      before: state.page.nextBefore,
-      offset: 0,
-    }
+    return applySiteBranding(channel, context)
   })
-
-  const hasMoreBefore = states.some((state) => {
-    const remainingVisible = state.page.posts.length - state.index
-    return remainingVisible > 0 || !state.page.exhausted
-  })
-  const beforeCursor = hasMoreBefore
-    ? encodeTimelineCursor({
-        v: 2,
-        sources: nextSources,
-        history: history.concat([sources]),
-      })
-    : undefined
-  const previousSources = history.at(-1)
-  const afterCursor = previousSources
-    ? encodeTimelineCursor({
-        v: 2,
-        sources: previousSources,
-        history: history.slice(0, -1),
-      })
-    : undefined
-  const channel: ChannelInfo = {
-    posts,
-    title: primaryChannelInfo.title || '',
-    description: primaryChannelInfo.description || '',
-    descriptionHTML: primaryChannelInfo.descriptionHTML || null,
-    avatar: primaryChannelInfo.avatar,
-    avatarNeedsProxy: true,
-    beforeCursor,
-    afterCursor,
-  }
-
-  const brandedChannel = applySiteBranding(channel, context)
-
-  cache.set(cacheKey, brandedChannel)
 
   return {
     channel: cloneCacheValue(brandedChannel),
@@ -1129,88 +1228,89 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
     return cloneCacheValue(cachedResult)
   }
 
-  const channelsStr = getRequiredEnv(context, 'CHANNEL')
-  const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
-  const isMultiChannel = channels.length > 1
+  const brandedChannelInfo = await loadCachedValue<ChannelInfo>(cacheKey, async () => {
+    const channelsStr = getRequiredEnv(context, 'CHANNEL')
+    const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
+    const isMultiChannel = channels.length > 1
 
-  const beforeCursors = before ? before.split('-') : []
-  const afterCursors = after ? after.split('-') : []
+    const beforeCursors = before ? before.split('-') : []
+    const afterCursors = after ? after.split('-') : []
 
-  const filterConfig = getPostFilterConfig(context)
+    const filterConfig = getPostFilterConfig(context)
 
-  let allPosts: Post[] = []
-  let primaryChannelInfo: Partial<ChannelInfo> = {}
+    let allPosts: Post[] = []
+    let primaryChannelInfo: Partial<ChannelInfo> = {}
 
-  const nextBeforeCursors: string[] = Array.from({ length: channels.length }).fill('0')
-  const nextAfterCursors: string[] = Array.from({ length: channels.length }).fill('0')
+    const nextBeforeCursors: string[] = Array.from({ length: channels.length }).fill('0')
+    const nextAfterCursors: string[] = Array.from({ length: channels.length }).fill('0')
 
-  const fetchPromises = channels.map(async (targetChannel, i) => {
-    const channelBefore = beforeCursors[i] || ''
-    const channelAfter = afterCursors[i] || ''
+    const fetchPromises = channels.map(async (targetChannel, i) => {
+      const channelBefore = beforeCursors[i] || ''
+      const channelAfter = afterCursors[i] || ''
 
-    // Skip fetching if this channel has reached the end of pagination
-    if ((before && channelBefore === '0') || (after && channelAfter === '0')) {
+      // Skip fetching if this channel has reached the end of pagination
+      if ((before && channelBefore === '0') || (after && channelAfter === '0')) {
+        if (i === 0) {
+          primaryChannelInfo = {
+            title: targetChannel,
+            description: '',
+            descriptionHTML: null,
+            avatar: undefined,
+          }
+        }
+        return []
+      }
+
+      const { $, channel, staticProxy, reactionsEnabled } = await loadChannelDocument(context, targetChannel, { before: channelBefore, after: channelAfter, q })
+
       if (i === 0) {
         primaryChannelInfo = {
-          title: targetChannel,
-          description: '',
-          descriptionHTML: null,
-          avatar: undefined,
+          title: $('.tgme_channel_info_header_title').text(),
+          description: $('.tgme_channel_info_description').text(),
+          descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy })).html(),
+          avatar: $('.tgme_page_photo_image img').attr('src'),
         }
       }
-      return []
+
+      const postNodes = $('.tgme_channel_history .tgme_widget_message_wrap').toArray()
+      const extractedPosts = (await Promise.all(
+        postNodes.map((item, index) => extractPost($, item, { channel, staticProxy, index, reactionsEnabled, isMultiChannel, isPrimaryChannel: i === 0, allChannels: channels })),
+      )).reverse()
+
+      const rawBeforeCursor = extractedPosts.at(-1)?.id?.replace(`${channel}-`, '') ?? ''
+      const rawAfterCursor = extractedPosts[0]?.id?.replace(`${channel}-`, '') ?? ''
+
+      nextBeforeCursors[i] = rawBeforeCursor
+      nextAfterCursors[i] = rawAfterCursor
+
+      return filterPosts(extractedPosts, filterConfig)
+    })
+
+    const results = await Promise.all(fetchPromises)
+    for (const validPosts of results) {
+      allPosts = allPosts.concat(validPosts)
     }
 
-    const { $, channel, staticProxy, reactionsEnabled } = await loadChannelDocument(context, targetChannel, { before: channelBefore, after: channelAfter, q })
+    allPosts.sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime())
 
-    if (i === 0) {
-      primaryChannelInfo = {
-        title: $('.tgme_channel_info_header_title').text(),
-        description: $('.tgme_channel_info_description').text(),
-        descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy })).html(),
-        avatar: $('.tgme_page_photo_image img').attr('src'),
-      }
+    const finalBeforeCursor = nextBeforeCursors.some(Boolean) ? nextBeforeCursors.map(c => c || '0').join('-') : undefined
+    const finalAfterCursor = nextAfterCursors.some(Boolean) ? nextAfterCursors.map(c => c || '0').join('-') : undefined
+
+    // Provide raw cursors to help sitemap generation
+    const channelInfo: ChannelInfo = {
+      posts: allPosts,
+      title: primaryChannelInfo.title || '',
+      description: primaryChannelInfo.description || '',
+      descriptionHTML: primaryChannelInfo.descriptionHTML || null,
+      avatar: primaryChannelInfo.avatar,
+      avatarNeedsProxy: true,
+      beforeCursor: finalBeforeCursor,
+      afterCursor: finalAfterCursor,
+      sitemapAfterCursor: nextAfterCursors.join('-'),
     }
 
-    const postNodes = $('.tgme_channel_history .tgme_widget_message_wrap').toArray()
-    const extractedPosts = (await Promise.all(
-      postNodes.map((item, index) => extractPost($, item, { channel, staticProxy, index, reactionsEnabled, isMultiChannel, isPrimaryChannel: i === 0, allChannels: channels })),
-    )).reverse()
-
-    const rawBeforeCursor = extractedPosts.at(-1)?.id?.replace(`${channel}-`, '') ?? ''
-    const rawAfterCursor = extractedPosts[0]?.id?.replace(`${channel}-`, '') ?? ''
-
-    nextBeforeCursors[i] = rawBeforeCursor
-    nextAfterCursors[i] = rawAfterCursor
-
-    return filterPosts(extractedPosts, filterConfig)
+    return applySiteBranding(channelInfo, context)
   })
 
-  const results = await Promise.all(fetchPromises)
-  for (const validPosts of results) {
-    allPosts = allPosts.concat(validPosts)
-  }
-
-  allPosts.sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime())
-
-  const finalBeforeCursor = nextBeforeCursors.some(Boolean) ? nextBeforeCursors.map(c => c || '0').join('-') : undefined
-  const finalAfterCursor = nextAfterCursors.some(Boolean) ? nextAfterCursors.map(c => c || '0').join('-') : undefined
-
-  // Provide raw cursors to help sitemap generation
-  const channelInfo: ChannelInfo = {
-    posts: allPosts,
-    title: primaryChannelInfo.title || '',
-    description: primaryChannelInfo.description || '',
-    descriptionHTML: primaryChannelInfo.descriptionHTML || null,
-    avatar: primaryChannelInfo.avatar,
-    avatarNeedsProxy: true,
-    beforeCursor: finalBeforeCursor,
-    afterCursor: finalAfterCursor,
-    sitemapAfterCursor: nextAfterCursors.join('-'),
-  }
-
-  const brandedChannelInfo = applySiteBranding(channelInfo, context)
-
-  cache.set(cacheKey, brandedChannelInfo)
   return cloneCacheValue(brandedChannelInfo)
 }
