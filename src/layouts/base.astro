@@ -227,6 +227,9 @@ const searchFormClass =
   'min-w-0 flex-1 rounded-full border border-[#bfdbfe]/70 bg-[#ebf4ff]/75 p-1 text-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] md:min-w-[110px] md:flex-none'
 const searchInputClass =
   'box-border w-full rounded-full border border-transparent bg-transparent px-3 text-[15px] leading-[2.2] text-[#1e73be] outline-none placeholder:text-[#1e73be]/60 focus-visible:border-[#93c5fd] focus-visible:bg-white/70 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-[#93c5fd] md:w-[118px] md:text-[13px]'
+const footerClass = 'text-[13px] leading-none text-footer'
+const footerLinkClass =
+  'inline-flex min-h-9 items-center rounded-full border border-[#93c5fd]/80 bg-[#ebf4ff]/80 px-4 font-medium text-[#1e73be] no-underline shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition duration-100 hover:border-[#60a5fa] hover:bg-[#dbeafe] hover:text-[#155f9f] hover:no-underline'
 const backToTopClass =
   'pointer-events-auto z-[1000] flex h-8 w-8 items-center justify-center rounded-full bg-code text-[24px] opacity-90 transition-transform duration-300 hover:-translate-y-[3px] active:translate-y-px'
 const backToTopIconClass = 'h-auto w-auto [filter:var(--icon-secondary-filter)]'
@@ -364,6 +367,17 @@ const searchLabelText = 'Search'
               spellcheck={false}
             />
           </form>
+          <footer class={footerClass}>
+            <a
+              href="https://blog.88lin.eu.org"
+              title="茉灵智库"
+              target="_blank"
+              rel="noopener noreferrer"
+              class={footerLinkClass}
+            >
+              茉灵智库
+            </a>
+          </footer>
         </div>
       </div>
     </header>
