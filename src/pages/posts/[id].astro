@@ -2,7 +2,7 @@
 import { getEnv } from '../../lib/env'
 import voidFile from '../../assets/void.png'
 import List from '../../components/list.astro'
-import { getChannelInfo, getChannelPost } from '../../lib/telegram'
+import { getChannelPost, getChannelSummary } from '../../lib/telegram'
 import { siteTitleStyle } from '../../lib/ui'
 
 const { SITE_URL } = Astro.locals
@@ -16,7 +16,7 @@ function toSiteAssetUrl(value: string | undefined): string | undefined {
   return value.startsWith('http') ? value : new URL(value, absoluteSiteUrl).toString()
 }
 
-const channelInfo = await getChannelInfo(Astro)
+const channelInfo = await getChannelSummary(Astro)
 
 if (!Astro.params.id) {
   return Astro.redirect('/')
@@ -74,6 +74,7 @@ const notFoundMessageClass =
                 src={avatarUrl ?? voidFile.src}
                 alt={channel?.title}
                 loading="eager"
+                decoding="async"
                 width="20"
                 height="20"
                 class={breadcrumbAvatarClass}
