@@ -16,8 +16,8 @@
   --color-heading: rgb(0, 0, 0);
   --color-accent: rgb(33, 150, 243);
   --color-accent-soft: rgb(235, 244, 255);
-  --color-surface: oklch(0.995 0.006 98);
-  --color-code: oklch(0.955 0.01 92 / 0.72);
+  --color-surface: rgb(255, 255, 255);
+  --color-code: rgb(245, 245, 244);
   --color-muted: rgb(75, 85, 99);
   --color-link: var(--color-accent);
   --color-link-hover: rgb(30, 115, 190);
