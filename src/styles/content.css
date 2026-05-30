@@ -380,8 +380,9 @@
       object-fit: contain !important;
     }
 
-    .image-list-container.image-list-single img {
+    .image-list-container.image-list-single .image-preview-button > img {
       width: auto;
+      max-width: min(100%, 720px) !important;
       height: auto;
       margin-inline: auto;
       object-fit: contain !important;
@@ -822,6 +823,7 @@
       border: none;
       background: transparent;
       box-shadow: none;
+      pointer-events: none;
     }
 
     .modal__close {
@@ -860,6 +862,7 @@
       background: transparent;
       box-shadow: none;
       object-fit: contain;
+      pointer-events: auto;
     }
   }
 

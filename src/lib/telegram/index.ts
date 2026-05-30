@@ -397,7 +397,7 @@ function getImages($: CheerioAPI, message: MessageSelection, options: MessageAss
           aria-label="${safeCloseLabel}"
         >&times;</button>
         <div class="modal__surface">
-          <img class="modal-img" src="${staticProxy + imageUrl}" alt="${safeTitle}" width="${width}" height="${height}" loading="lazy" decoding="async" />
+          <img class="modal-img" src="${staticProxy + imageUrl}" alt="${safeTitle}" loading="lazy" decoding="async" />
         </div>
       </div>
     `)
