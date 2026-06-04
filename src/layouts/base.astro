@@ -54,7 +54,7 @@ const shareImage = avatarImageSource?.startsWith('http')
   ? channel?.avatarNeedsProxy
     ? `https://wsrv.nl/?w=1200&h=630&fit=cover&url=ssl:${avatarImageSource.replace(/^https?:\/\//, '')}`
     : avatarImageSource
-  : new URL('favicon.ico', absoluteSiteUrl).toString()
+  : new URL('favicon.svg', absoluteSiteUrl).toString()
 const favicon = avatarImageSource?.startsWith('http')
   ? channel?.avatarNeedsProxy
     ? `https://wsrv.nl/?w=64&h=64&fit=cover&mask=circle&url=ssl:${avatarImageSource.replace(/^https?:\/\//, '')}`
@@ -91,7 +91,7 @@ const seoParams = {
       },
       {
         rel: 'apple-touch-icon',
-        href: new URL('favicon.ico', absoluteSiteUrl).toString(),
+        href: new URL('favicon.svg', absoluteSiteUrl).toString(),
       },
       {
         rel: 'manifest',
