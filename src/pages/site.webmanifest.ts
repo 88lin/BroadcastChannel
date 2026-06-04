@@ -38,12 +38,6 @@ export const GET: APIRoute = async (context) => {
             type: 'image/svg+xml',
             purpose: 'any',
           },
-          {
-            src: 'favicon.ico',
-            sizes: '16x16 32x32 48x48',
-            type: 'image/x-icon',
-            purpose: 'any',
-          },
         ],
     theme_color: MANIFEST_THEME_COLOR,
     background_color: MANIFEST_THEME_COLOR,
