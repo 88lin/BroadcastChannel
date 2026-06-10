@@ -23,6 +23,20 @@ const BASE64_PADDING_REGEX = /=+$/g
 const BASE64URL_DASH_REGEX = /-/g
 const BASE64URL_UNDERSCORE_REGEX = /_/g
 const UNNECESSARY_HEADERS = new Set(['host', 'cookie', 'origin', 'referer'])
+const MAX_ENTITY_DECODE_PASSES = 3
+const HTML_ENTITY_REGEX = /&(?:#(\d+)|#x([\da-f]+)|([a-z][\da-z]+));/gi
+const STYLE_DOUBLE_QUOTED_URL_REGEX = /url\("([^"]*)"\)/gi
+const STYLE_SINGLE_QUOTED_URL_REGEX = /url\('([^']*)'\)/gi
+const STYLE_UNQUOTED_URL_REGEX = /url\(([^)"']*)\)/gi
+const URL_ATTRIBUTE_NAMES = ['href', 'src', 'srcset', 'poster', 'action', 'formaction', 'data-webp'] as const
+const HTML_ENTITY_MAP: Record<string, string> = {
+  amp: '&',
+  apos: '\'',
+  gt: '>',
+  lt: '<',
+  nbsp: '\u00A0',
+  quot: '"',
+}
 
 type CacheValue = ChannelInfo | Post
 type MessageSelection = Cheerio<AnyNode>
@@ -213,11 +227,85 @@ function getCustomEmojiImage(emojiId: string | undefined, staticProxy = ''): str
   }
 
   const imageUrl = `https://t.me/i/emoji/${emojiId}.webp`
-  return `${staticProxy}${imageUrl}`
+  return getProxiedUrl(staticProxy, imageUrl)
 }
 
 function isNonEmptyString(value: string | null | undefined): value is string {
   return Boolean(value)
+}
+
+function decodeHtmlEntityReferences(value: string): string {
+  return value.replace(HTML_ENTITY_REGEX, (match, decimal: string | undefined, hex: string | undefined, named: string | undefined) => {
+    if (decimal || hex) {
+      const codePoint = Number.parseInt(decimal ?? hex ?? '', decimal ? 10 : 16)
+
+      if (!Number.isFinite(codePoint)) {
+        return match
+      }
+
+      try {
+        return String.fromCodePoint(codePoint)
+      }
+      catch {
+        return match
+      }
+    }
+
+    return named ? HTML_ENTITY_MAP[named.toLowerCase()] ?? match : match
+  })
+}
+
+function normalizeUrlAttribute(value: string): string {
+  let normalized = value
+
+  for (let pass = 0; pass < MAX_ENTITY_DECODE_PASSES; pass += 1) {
+    const decoded = decodeHtmlEntityReferences(normalized)
+
+    if (decoded === normalized) {
+      break
+    }
+
+    normalized = decoded
+  }
+
+  return normalized
+}
+
+function normalizeOptionalUrlAttribute(value: string | undefined): string | undefined {
+  return value ? normalizeUrlAttribute(value) : value
+}
+
+function getProxiedUrl(staticProxy: string, url: string): string {
+  return staticProxy + normalizeUrlAttribute(url)
+}
+
+function normalizeStyleUrls(style: string): string {
+  return style
+    .replace(STYLE_DOUBLE_QUOTED_URL_REGEX, (_match, url: string) => `url("${normalizeUrlAttribute(url)}")`)
+    .replace(STYLE_SINGLE_QUOTED_URL_REGEX, (_match, url: string) => `url('${normalizeUrlAttribute(url)}')`)
+    .replace(STYLE_UNQUOTED_URL_REGEX, (_match, url: string) => `url(${normalizeUrlAttribute(url.trim())})`)
+}
+
+function normalizeUrlAttributes($: CheerioAPI, root: MessageSelection): void {
+  const nodes = [...root.toArray(), ...root.find('*').toArray()]
+
+  for (const node of nodes) {
+    const element = $(node)
+
+    for (const attributeName of URL_ATTRIBUTE_NAMES) {
+      const value = element.attr(attributeName)
+
+      if (value) {
+        element.attr(attributeName, normalizeUrlAttribute(value))
+      }
+    }
+
+    const style = element.attr('style')
+
+    if (style) {
+      element.attr('style', normalizeStyleUrls(style))
+    }
+  }
 }
 
 function escapeHtmlAttribute(value: string): string {
@@ -328,8 +416,8 @@ function getVideoStickers($: CheerioAPI, message: MessageSelection, options: Ind
 
     fragments.push(`
     <div style="background-image: none; width: 256px;">
-      <video src="${videoSrc ? staticProxy + videoSrc : ''}" width="256" height="256" aria-label="Video sticker" preload="metadata" muted autoplay loop playsinline disablepictureinpicture>
-        <img class="sticker" src="${imageSrc ? staticProxy + imageSrc : ''}" alt="Video sticker" width="256" height="256" loading="${loading}" decoding="async" />
+      <video src="${videoSrc ? getProxiedUrl(staticProxy, videoSrc) : ''}" width="256" height="256" aria-label="Video sticker" preload="metadata" muted autoplay loop playsinline disablepictureinpicture>
+        <img class="sticker" src="${imageSrc ? getProxiedUrl(staticProxy, imageSrc) : ''}" alt="Video sticker" width="256" height="256" loading="${loading}" decoding="async" />
       </video>
     </div>
     `)
@@ -347,7 +435,7 @@ function getImageStickers($: CheerioAPI, message: MessageSelection, options: Ind
     const imageSrc = $(imageNode).attr('data-webp')
 
     fragments.push(
-      `<img class="sticker" src="${imageSrc ? staticProxy + imageSrc : ''}" style="width: 256px;" alt="Sticker" width="256" height="256" loading="${loading}" decoding="async" />`,
+      `<img class="sticker" src="${imageSrc ? getProxiedUrl(staticProxy, imageSrc) : ''}" style="width: 256px;" alt="Sticker" width="256" height="256" loading="${loading}" decoding="async" />`,
     )
   }
 
@@ -379,7 +467,7 @@ function getImages($: CheerioAPI, message: MessageSelection, options: MessageAss
         popovertargetaction="show"
         aria-label="${safePreviewLabel}"
       >
-        <img src="${staticProxy + imageUrl}" alt="${safeTitle}" width="${width}" height="${height}" loading="${loading}" decoding="async" />
+        <img src="${getProxiedUrl(staticProxy, imageUrl)}" alt="${safeTitle}" width="${width}" height="${height}" loading="${loading}" decoding="async" />
       </button>
       <div class="modal" id="${popoverId}" popover aria-label="Image preview">
         <button
@@ -397,7 +485,7 @@ function getImages($: CheerioAPI, message: MessageSelection, options: MessageAss
           aria-label="${safeCloseLabel}"
         >&times;</button>
         <div class="modal__surface">
-          <img class="modal-img" src="${staticProxy + imageUrl}" alt="${safeTitle}" loading="lazy" decoding="async" />
+          <img class="modal-img" src="${getProxiedUrl(staticProxy, imageUrl)}" alt="${safeTitle}" loading="lazy" decoding="async" />
         </div>
       </div>
     `)
@@ -417,7 +505,7 @@ function getVideo($: CheerioAPI, message: MessageSelection, options: IndexedStat
   const videoSrc = video.attr('src')
 
   if (videoSrc) {
-    video.attr('src', staticProxy + videoSrc)
+    video.attr('src', getProxiedUrl(staticProxy, videoSrc))
   }
 
   video
@@ -430,7 +518,7 @@ function getVideo($: CheerioAPI, message: MessageSelection, options: IndexedStat
   const roundVideoSrc = roundVideo.attr('src')
 
   if (roundVideoSrc) {
-    roundVideo.attr('src', staticProxy + roundVideoSrc)
+    roundVideo.attr('src', getProxiedUrl(staticProxy, roundVideoSrc))
   }
 
   roundVideo
@@ -448,7 +536,7 @@ function getAudio($: CheerioAPI, message: MessageSelection, options: StaticProxy
   const audioSrc = audio.attr('src')
 
   if (audioSrc) {
-    audio.attr('src', staticProxy + audioSrc)
+    audio.attr('src', getProxiedUrl(staticProxy, audioSrc))
   }
 
   audio.attr('controls', '')
@@ -458,16 +546,21 @@ function getAudio($: CheerioAPI, message: MessageSelection, options: StaticProxy
 function getLinkPreview($: CheerioAPI, message: MessageSelection, options: IndexedStaticProxyOptions): string {
   const { staticProxy = '', index = 0 } = options
   const link = message.find('.tgme_widget_message_link_preview')
+  const href = link.attr('href')
   const title = message.find('.link_preview_title').text() || message.find('.link_preview_site_name').text()
   const description = message.find('.link_preview_description').text()
   const loading = getImageLoading(index)
   const safeTitle = escapeHtmlAttribute(title || 'Link preview image')
 
+  if (href) {
+    link.attr('href', normalizeUrlAttribute(href))
+  }
+
   link.attr('target', '_blank').attr('rel', 'noopener').attr('title', description)
 
   const image = message.find('.link_preview_image')
   const previewUrl = image.attr('style')?.match(STYLE_URL_REGEX)?.[1]
-  const imageSrc = previewUrl ? staticProxy + previewUrl : ''
+  const imageSrc = previewUrl ? getProxiedUrl(staticProxy, previewUrl) : ''
 
   image.replaceWith(
     `<img class="link_preview_image" alt="${safeTitle}" src="${imageSrc}" width="1200" height="630" loading="${loading}" decoding="async" />`,
@@ -484,7 +577,7 @@ function getReply($: CheerioAPI, message: MessageSelection, options: ReplyOption
 
   const href = reply.attr('href')
   if (href) {
-    const replyUrl = new URL(href, 'https://t.me')
+    const replyUrl = new URL(normalizeUrlAttribute(href), 'https://t.me')
     // Extract the channel from the reply URL (format: /channel/id)
     const pathParts = replyUrl.pathname.split('/').filter(Boolean)
 
@@ -521,10 +614,17 @@ async function modifyHTMLContent($: CheerioAPI, content: MessageSelection, optio
   const { index = 0, staticProxy = '' } = options
 
   await hydrateTgEmoji($, content, { staticProxy })
+  normalizeUrlAttributes($, content)
   content.find('.emoji').removeAttr('style')
 
   for (const linkNode of content.find('a').toArray()) {
     const link = $(linkNode)
+    const href = link.attr('href')
+
+    if (href) {
+      link.attr('href', normalizeUrlAttribute(href))
+    }
+
     link.attr('title', link.text()).removeAttr('onclick')
   }
 
@@ -616,6 +716,7 @@ function getReactions($: CheerioAPI, message: MessageSelection, staticProxy: str
 async function extractPost($: CheerioAPI, item: AnyNode | null, options: ExtractPostOptions): Promise<Post> {
   const { channel, staticProxy, index = 0, reactionsEnabled, isMultiChannel, isPrimaryChannel } = options
   const message = item ? $(item).find('.tgme_widget_message') : $('.tgme_widget_message')
+  normalizeUrlAttributes($, message)
   const hasReplyText = message.find('.js-message_reply_text').length > 0
   const content = await modifyHTMLContent(
     $,
@@ -798,7 +899,7 @@ export async function getChannelSummary(context: RequestContext): Promise<Channe
       title: $('.tgme_channel_info_header_title').text(),
       description: $('.tgme_channel_info_description').text(),
       descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy })).html(),
-      avatar: $('.tgme_page_photo_image img').attr('src'),
+      avatar: normalizeOptionalUrlAttribute($('.tgme_page_photo_image img').attr('src')),
       avatarNeedsProxy: true,
     }
 
@@ -1014,7 +1115,7 @@ async function getTimelineSourcePage(
       primaryChannelInfo.title = $('.tgme_channel_info_header_title').text()
       primaryChannelInfo.description = $('.tgme_channel_info_description').text()
       primaryChannelInfo.descriptionHTML = (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy })).html()
-      primaryChannelInfo.avatar = $('.tgme_page_photo_image img').attr('src')
+      primaryChannelInfo.avatar = normalizeOptionalUrlAttribute($('.tgme_page_photo_image img').attr('src'))
     }
 
     const postNodes = $('.tgme_channel_history .tgme_widget_message_wrap').toArray()
@@ -1268,7 +1369,7 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
           title: $('.tgme_channel_info_header_title').text(),
           description: $('.tgme_channel_info_description').text(),
           descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy })).html(),
-          avatar: $('.tgme_page_photo_image img').attr('src'),
+          avatar: normalizeOptionalUrlAttribute($('.tgme_page_photo_image img').attr('src')),
         }
       }
 
