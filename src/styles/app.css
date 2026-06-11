@@ -357,4 +357,30 @@
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
   }
+
+  @supports (animation-timeline: scroll()) {
+    #back-to-top {
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      animation: back-to-top-reveal linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0 100vh;
+    }
+
+    @keyframes back-to-top-reveal {
+      0%,
+      99% {
+        opacity: 0;
+        pointer-events: none;
+        visibility: hidden;
+      }
+
+      100% {
+        opacity: 0.9;
+        pointer-events: auto;
+        visibility: visible;
+      }
+    }
+  }
 }
