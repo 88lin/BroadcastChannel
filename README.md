@@ -51,11 +51,11 @@
 
 ### 平台
 
-1. [Cloudflare](https://broadcast-channel.pages.dev/)
+1. [Cloudflare Workers](https://broadcast-channel.pages.dev/)
 2. [Netlify](https://broadcast-channel.netlify.app/)
 3. [Vercel](https://broadcast-channel.vercel.app/)
 
-广播频道支持部署在 Cloudflare、Netlify、Vercel 等支持 Node.js SSR 的无服务器平台或者 VPS。
+广播频道支持部署在 Cloudflare Workers、Netlify、Vercel 等支持 Node.js SSR 的无服务器平台或者 VPS。
 具体教程见[部署你的 Astro 站点](https://docs.astro.build/zh-cn/guides/deploy/)。
 
 ## 🧱 技术栈
@@ -74,12 +74,19 @@
 ### Serverless
 
 1. [Fork](https://github.com/miantiao-me/BroadcastChannel/fork) 此项目到你 GitHub
-2. 在 Cloudflare/Netlify/Vercel 创建项目
+2. 在 Cloudflare Workers/Netlify/Vercel 创建项目
 3. 选择 `BroadcastChannel` 项目和 `Astro` 框架
 4. 配置环境变量 `CHANNEL` 为你的频道名称。此为最小化配置，更多配置见下面的配置项
 5. 保存并部署
 6. 绑定域名（可选）。
 7. 更新代码，参考 GitHub 官方文档 [从 Web UI 同步分叉分支](https://docs.github.com/zh/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork#syncing-a-fork-branch-from-the-web-ui)。
+
+### Cloudflare Workers
+
+Astro 6 使用的 `@astrojs/cloudflare` v13 面向 Cloudflare Workers，不再支持 Cloudflare Pages。Cloudflare 部署请使用 Workers，并在 Workers 环境变量中配置 `CHANNEL` 等变量。
+
+1. `pnpm build:cloudflare`
+2. `pnpm deploy:cloudflare`
 
 ## ⚒️ 配置
 

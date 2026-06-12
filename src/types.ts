@@ -55,6 +55,7 @@ export interface TimelinePage {
 
 export interface AstroEnvContext {
   locals?: App.Locals & {
+    /** Legacy Astro runtime env shape; Astro v6 Cloudflare exposes env elsewhere. */
     runtime?: {
       env?: Record<string, string | undefined>
     }

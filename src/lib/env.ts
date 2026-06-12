@@ -11,12 +11,20 @@ function getProcessEnv(name: string): string | undefined {
   return globalScope[PROCESS_GLOBAL_KEY]?.env?.[name]
 }
 
+function getRuntimeEnv(Astro: AstroEnvContext, name: string): string | undefined {
+  try {
+    return Astro.locals?.runtime?.env?.[name]
+  }
+  catch {
+    return undefined
+  }
+}
+
 /**
  * Reads an env variable from Vite's import.meta.env first, then falls back to
- * the Cloudflare/runtime env bindings exposed via Astro.locals.runtime.env,
- * then process.env as a last resort (covers Cloudflare Pages where Vite
- * static-replaces import.meta.env at build time and the runtime object may
- * not carry every binding).
+ * legacy Astro runtime env bindings when present, then process.env as a last
+ * resort. Cloudflare Workers exposes text bindings through process.env when
+ * nodejs_compat process env population is enabled.
  *
  * Boolean strings ("true" / "false") are normalized to actual booleans so
  * callers can use simple truthy checks.
@@ -27,7 +35,7 @@ export function getEnv(
   name: string,
 ): string | boolean | undefined {
   const value = env[name]
-    ?? Astro.locals?.runtime?.env?.[name]
+    ?? getRuntimeEnv(Astro, name)
     ?? getProcessEnv(name)
   if (value === 'true')
     return true
