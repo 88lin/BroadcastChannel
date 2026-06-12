@@ -8,23 +8,62 @@ const TARGET_WHITELIST = [
   'yandex.ru',
 ]
 
+const FORWARDED_REQUEST_HEADERS = new Set([
+  'accept',
+  'accept-language',
+  'if-modified-since',
+  'if-none-match',
+  'range',
+  'user-agent',
+])
+
 export function resolveStaticProxyTarget(rawTarget: string): URL {
   const normalizedTarget = rawTarget.startsWith('//') ? `https:${rawTarget}` : rawTarget
   return new URL(normalizedTarget)
 }
 
 export function isStaticProxyWhitelisted(target: URL): boolean {
-  return TARGET_WHITELIST.some(domain => target.hostname.endsWith(domain))
+  const isAllowedProtocol = target.protocol === 'http:' || target.protocol === 'https:'
+  return isAllowedProtocol && TARGET_WHITELIST.some(domain => target.hostname === domain || target.hostname.endsWith(`.${domain}`))
+}
+
+function getForwardedRequestHeaders(request: Request): Headers {
+  const headers = new Headers()
+
+  for (const [key, value] of request.headers.entries()) {
+    if (FORWARDED_REQUEST_HEADERS.has(key.toLowerCase())) {
+      headers.set(key, value)
+    }
+  }
+
+  return headers
 }
 
 export async function createStaticProxyResponse(request: Request, rawTarget: string): Promise<Response> {
-  const target = resolveStaticProxyTarget(rawTarget)
+  let target: URL
+
+  try {
+    target = resolveStaticProxyTarget(rawTarget)
+  }
+  catch {
+    return new Response('Invalid proxy target', { status: 400 })
+  }
 
   if (!isStaticProxyWhitelisted(target)) {
     return new Response('Proxy target not allowed', { status: 403 })
   }
 
-  const response = await fetch(target.toString(), request)
+  let response: Response
+
+  try {
+    response = await fetch(target.toString(), {
+      headers: getForwardedRequestHeaders(request),
+    })
+  }
+  catch {
+    return new Response('Upstream fetch failed', { status: 502 })
+  }
+
   const headers = new Headers(response.headers)
 
   if (response.status === 200) {

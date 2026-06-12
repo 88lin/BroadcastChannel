@@ -4,7 +4,6 @@ import netlify from '@astrojs/netlify'
 import node from '@astrojs/node'
 import vercel from '@astrojs/vercel'
 import edgeone from '@edgeone/astro'
-import sentry from '@sentry/astro'
 import tailwindcss from '@tailwindcss/vite'
 import astroIcon from 'astro-icon'
 import { defineConfig } from 'astro/config'
@@ -36,22 +35,6 @@ export default defineConfig({
   adapter: providers[adapterProvider] || providers.node,
   integrations: [
     astroIcon(),
-    ...(process.env.SENTRY_DSN
-      ? [
-          sentry({
-            enabled: {
-              client: false,
-              server: process.env.SENTRY_DSN,
-            },
-            dsn: process.env.SENTRY_DSN,
-            sourceMapsUploadOptions: {
-              enabled: process.env.SENTRY_PROJECT && process.env.SENTRY_AUTH_TOKEN,
-              project: process.env.SENTRY_PROJECT,
-              authToken: process.env.SENTRY_AUTH_TOKEN,
-            },
-          }),
-        ]
-      : []),
   ],
   vite: {
     plugins: [tailwindcss()],

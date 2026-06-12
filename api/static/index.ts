@@ -5,21 +5,17 @@ export const config = {
 }
 
 export default async function handler(request: Request): Promise<Response> {
-  try {
-    const urlStr = request.url?.split('/static/')?.[1]
+  const url = new URL(request.url)
+  const pathTarget = url.searchParams.get('path')
+  const pathPrefix = '/static/'
+  const rawPath = pathTarget ?? (url.pathname.startsWith(pathPrefix) ? url.pathname.slice(pathPrefix.length) : '')
 
-    if (!urlStr) {
-      return new Response('Not Found', { status: 404 })
-    }
+  url.searchParams.delete('path')
 
-    const parsed = new URL(urlStr)
-    parsed.searchParams.delete('path')
-
-    const rawTarget = parsed.origin + parsed.pathname + parsed.search
-    return await createStaticProxyResponse(request, rawTarget)
+  if (!rawPath) {
+    return new Response('Not Found', { status: 404 })
   }
-  catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return new Response(message, { status: 500 })
-  }
+
+  const rawTarget = rawPath + url.search
+  return createStaticProxyResponse(request, rawTarget)
 }

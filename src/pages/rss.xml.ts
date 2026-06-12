@@ -1,44 +1,24 @@
 import type { APIRoute } from 'astro'
 import rss from '@astrojs/rss'
-import sanitizeHtml from 'sanitize-html'
-import { getEnv } from '../lib/env'
-import { getChannelInfo } from '../lib/telegram'
+import { getBooleanEnv } from '../lib/env'
+import { getFeedData } from '../lib/feed'
+import { sanitizeFeedHtml } from '../lib/sanitize'
 
 export const GET: APIRoute = async (context) => {
-  const { SITE_URL } = context.locals
-  const tag = context.url.searchParams.get('tag')
-  const channel = await getChannelInfo(context, {
-    q: tag ? `#${tag}` : '',
-  })
-  const posts = channel.posts ?? []
-  const requestUrl = new URL(context.request.url)
-
-  requestUrl.pathname = SITE_URL
-  requestUrl.search = ''
+  const { channel, posts, siteUrl, title } = await getFeedData(context)
 
   const response = await rss({
-    title: `${tag ? `${tag} | ` : ''}${channel.title}`,
+    title,
     description: channel.description,
-    site: requestUrl.origin,
+    site: siteUrl.toString(),
     trailingSlash: false,
-    stylesheet: getEnv(import.meta.env, context, 'RSS_BEAUTIFY') ? '/rss.xsl' : undefined,
+    stylesheet: getBooleanEnv(import.meta.env, context, 'RSS_BEAUTIFY') ? '/rss.xsl' : undefined,
     items: posts.map(item => ({
       link: `posts/${item.id}`,
       title: item.title,
       description: item.description,
       pubDate: new Date(item.datetime),
-      content: sanitizeHtml(item.content, {
-        allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'video', 'audio']),
-        allowedAttributes: {
-          ...sanitizeHtml.defaults.allowedAttributes,
-          video: ['src', 'width', 'height', 'poster'],
-          audio: ['src', 'controls'],
-          img: ['src', 'srcset', 'alt', 'title', 'width', 'height', 'loading', 'class'],
-        },
-        exclusiveFilter(frame) {
-          return frame.tag === 'img' && frame.attribs.class?.includes('modal-img')
-        },
-      }),
+      content: sanitizeFeedHtml(item.content),
     })),
   })
 

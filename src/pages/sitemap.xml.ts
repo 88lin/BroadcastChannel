@@ -1,30 +1,23 @@
 import type { APIRoute } from 'astro'
-import { getEnv } from '../lib/env'
+import { getEnv, parseCsvList } from '../lib/env'
+import { getSitemapUrl, resolveSiteUrl } from '../lib/seo'
 import { getChannelInfo } from '../lib/telegram'
 
 export const GET: APIRoute = async (Astro) => {
-  const request = Astro.request
-  const url = new URL(request.url)
+  const siteUrl = resolveSiteUrl(Astro.locals.SITE_URL, Astro.url.origin)
   const channel = await getChannelInfo(Astro)
   const posts = channel.posts || []
-
-  const channelsStr = getEnv(import.meta.env, Astro, 'CHANNEL')
-  const channels = typeof channelsStr === 'string' ? channelsStr.split(',').map(c => c.trim()).filter(Boolean) : []
+  const channels = parseCsvList(getEnv(import.meta.env, Astro, 'CHANNEL'))
   const isMultiChannel = channels.length > 1
   const pageSize = 20
-
   const pages: string[] = []
 
   if (isMultiChannel) {
-    // Generate separate sitemap endpoints per channel
-    // E.g., /sitemap/channelA/103.xml, /sitemap/channelB/88.xml
-
-    // Fallback ID collection
     const maxIds: number[] = Array.from({ length: channels.length }).fill(0) as number[]
     if (channel.sitemapAfterCursor) {
       const topCursors = channel.sitemapAfterCursor.split('-')
       topCursors.forEach((cursor, index) => {
-        maxIds[index] = +cursor
+        maxIds[index] = Number(cursor)
       })
     }
     else {
@@ -33,21 +26,21 @@ export const GET: APIRoute = async (Astro) => {
           const parts = post.id.split('-')
           const channelIndex = channels.indexOf(parts[0])
           if (channelIndex > 0) {
-            maxIds[channelIndex] = Math.max(maxIds[channelIndex], +parts[1])
+            maxIds[channelIndex] = Math.max(maxIds[channelIndex], Number(parts[1]))
           }
         }
         else {
-          maxIds[0] = Math.max(maxIds[0], +post.id)
+          maxIds[0] = Math.max(maxIds[0], Number(post.id))
         }
       }
     }
 
-    for (let i = 0; i < channels.length; i++) {
-      let count = maxIds[i]
-      if (count === 0)
+    for (let index = 0; index < channels.length; index += 1) {
+      let count = maxIds[index]
+      if (!Number.isFinite(count) || count <= 0)
         continue
 
-      const channelName = channels[i]
+      const channelName = channels[index]
       pages.push(`${channelName}-${count}`)
 
       while (count > pageSize) {
@@ -57,18 +50,20 @@ export const GET: APIRoute = async (Astro) => {
     }
   }
   else {
-    let count = +(posts[0]?.id ?? 0)
-    pages.push(String(count))
-    while (count > pageSize) {
-      count -= pageSize
+    let count = Number(posts[0]?.id ?? 0)
+    if (Number.isFinite(count) && count > 0) {
       pages.push(String(count))
+      while (count > pageSize) {
+        count -= pageSize
+        pages.push(String(count))
+      }
     }
   }
 
   const sitemaps = pages.map((page) => {
     return `
 <sitemap>
-  <loc>${url.origin}/sitemap/${page}.xml</loc>
+  <loc>${getSitemapUrl(siteUrl, `sitemap/${page}.xml`)}</loc>
 </sitemap>`
   })
 
@@ -77,6 +72,7 @@ export const GET: APIRoute = async (Astro) => {
   ${sitemaps.join('')}
 </sitemapindex>`, {
     headers: {
+      'Cache-Control': 'public, max-age=3600',
       'Content-Type': 'application/xml',
     },
   })

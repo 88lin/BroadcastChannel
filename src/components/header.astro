@@ -1,16 +1,18 @@
 ---
-import { getEnv } from '../lib/env'
+import { getBooleanEnv } from '../lib/env'
+import { sanitizeContentHtml } from '../lib/sanitize'
 
 const { channel } = Astro.props
 
-const hideDescription = getEnv(import.meta.env, Astro, 'HIDE_DESCRIPTION')
+const hideDescription = getBooleanEnv(import.meta.env, Astro, 'HIDE_DESCRIPTION')
+const descriptionHtml = channel?.descriptionHTML ? sanitizeContentHtml(channel.descriptionHTML) : ''
 
 const introClass =
   'mb-5 ml-[3px] break-words rounded-panel border-l-2 border-line bg-code px-5 py-[10px] text-base leading-[1.6] text-muted shadow-soft max-sm:my-5 max-sm:ml-0'
 ---
 
 {
-  !hideDescription && channel?.descriptionHTML && channel?.descriptionHTML.length > 0 && (
-    <div class:list={[introClass, 'content']} set:html={channel?.descriptionHTML} />
+  !hideDescription && descriptionHtml.length > 0 && (
+    <div class:list={[introClass, 'content']} set:html={descriptionHtml} />
   )
 }

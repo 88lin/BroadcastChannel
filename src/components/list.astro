@@ -1,10 +1,10 @@
 ---
-import Layout from '../layouts/base.astro'
 import Header from '../components/header.astro'
 import Item from '../components/item.astro'
+import Layout from '../layouts/base.astro'
 
 const { SITE_URL } = Astro.locals
-const { channel, before = true, after = true, isItem = false, pageHeading } = Astro.props
+const { channel, before = true, after = true, isItem = false, pageHeading, pageSeo } = Astro.props
 const posts = channel.posts ?? []
 
 const beforeCursor = channel.beforeCursor
@@ -15,7 +15,7 @@ const paginationInfoClass = 'flex-1 text-center align-middle text-[12px] font-me
 const paginationPlaceholderClass = 'inline-block w-[34px]'
 ---
 
-<Layout channel={channel}>
+<Layout channel={channel} seo={pageSeo}>
   {pageHeading ? <h1 class="sr-only">{pageHeading}</h1> : null}
   <slot name="header">
     <Header channel={channel} />
