@@ -1,23 +1,18 @@
 ---
-import dayjs from '../lib/dayjs'
-import { getEnv } from '../lib/env'
+import { getBooleanEnv, getStringEnv, parseCsvList } from '../lib/env'
+import { formatPostTime, getReactionLabel, getTagHref } from '../lib/post-ui'
+import { sanitizeContentHtml } from '../lib/sanitize'
 
-const locale = getEnv(import.meta.env, Astro, 'LOCALE')
-const timezone = getEnv(import.meta.env, Astro, 'TIMEZONE')
-
-locale && dayjs.locale(locale)
+const locale = getStringEnv(import.meta.env, Astro, 'LOCALE')
+const timezone = getStringEnv(import.meta.env, Astro, 'TIMEZONE')
 
 const { SITE_URL } = Astro.locals
 const { post, isItem } = Astro.props
 
-const channelsStr = getEnv(import.meta.env, Astro, 'CHANNEL')
-const channels = (channelsStr || '')
-  .split(',')
-  .map((c) => c.trim())
-  .filter(Boolean)
+const channels = parseCsvList(getStringEnv(import.meta.env, Astro, 'CHANNEL'))
 const isMultiChannel = channels.length > 1
-const COMMENTS = getEnv(import.meta.env, Astro, 'COMMENTS')
-const REACTIONS = getEnv(import.meta.env, Astro, 'REACTIONS')
+const commentsEnabled = getBooleanEnv(import.meta.env, Astro, 'COMMENTS')
+const reactionsEnabled = getBooleanEnv(import.meta.env, Astro, 'REACTIONS')
 
 let discussionChannel = channels[0]
 let discussionId = post.id
@@ -28,10 +23,10 @@ if (isMultiChannel && post.id.includes('-')) {
   discussionId = parts.slice(1).join('-')
 }
 
-const datetime = dayjs(post.datetime).tz(timezone)
-const timeago = datetime.isBefore(dayjs().subtract(1, 'w')) ? datetime.format('HH:mm · ll · ddd') : datetime.fromNow()
-const hasContent = post.content.length > 0
-const hasReactions = Boolean(REACTIONS && post.reactions?.length > 0)
+const timeago = formatPostTime(post.datetime, timezone, locale)
+const contentHtml = sanitizeContentHtml(post.content)
+const hasContent = contentHtml.length > 0
+const hasReactions = Boolean(reactionsEnabled && post.reactions?.length > 0)
 const hasTags = post.tags.length > 0
 const articleClass =
   'w-full min-w-0 max-w-full rounded-3xl border border-line bg-surface px-5 py-5 shadow-craft transition duration-200 sm:px-7 sm:py-7 lg:px-8 lg:py-8 lg:hover:shadow-soft'
@@ -41,19 +36,18 @@ const timeTextClass = 'm-0 flex-1 pl-[10px] text-[14px] font-medium text-muted'
 const itemLinkClass = 'text-muted no-underline hover:text-heading hover:underline'
 const contentClass = 'mt-5'
 const reactionBoxClass = 'mt-5 border-t border-line pt-4'
-const reactionListClass = 'm-0 flex flex-wrap gap-[6px]'
+const reactionListClass = 'm-0 flex list-none flex-wrap gap-[6px] p-0'
 const reactionPillClass =
   'inline-flex items-center gap-1 rounded-full border border-line bg-[#f3f4f6] py-[3px] pl-[6px] pr-[8px] text-[12px] text-muted'
 const reactionPaidClass = 'border-[#facc15] bg-[#fbf3db] text-heading'
 const reactionEmojiClass = 'inline-flex items-center text-[14px] leading-none'
 const reactionCountClass = 'font-medium opacity-80 [font-variant-numeric:tabular-nums]'
 const tagBoxClass = 'mt-5 flex flex-wrap items-center gap-2 border-t border-line pt-4 text-[14px] leading-[1.6]'
-const tagPaddingClass = COMMENTS && isItem ? 'mb-5' : ''
+const tagPaddingClass = commentsEnabled && isItem ? 'mb-5' : ''
 const tagStandaloneClass = 'mt-5'
 const tagLinkClass =
   'inline-flex items-center rounded-2xl border border-transparent bg-transparent px-3 py-1 text-[13px] font-medium text-muted no-underline transition hover:border-[#93c5fd] hover:bg-[#ebf4ff] hover:text-heading hover:shadow-[0_6px_12px_rgba(59,130,246,0.08)] hover:no-underline'
 const commentsClass = 'tg-comments mt-5 border-t border-line pt-4'
-const getTagHref = (tag: string) => `/search/result?q=${encodeURIComponent(`#${tag}`)}`
 ---
 
 <article
@@ -71,13 +65,16 @@ const getTagHref = (tag: string) => `/search/result?q=${encodeURIComponent(`#${t
       </a>
     </p>
   </header>
-  {hasContent && <div class:list={[contentClass, 'content']} set:html={post.content} />}
+  {hasContent && <div class:list={[contentClass, 'content']} set:html={contentHtml} />}
   {
     hasReactions && (
       <div class:list={[reactionBoxClass, hasContent && '-mt-3 pt-0']}>
-        <div class={reactionListClass}>
+        <ul class={reactionListClass} role="list" aria-label="Reactions">
           {post.reactions.map((reaction) => (
-            <span class:list={[reactionPillClass, reaction.isPaid && reactionPaidClass]}>
+            <li
+              class:list={[reactionPillClass, reaction.isPaid && reactionPaidClass]}
+              aria-label={getReactionLabel(reaction)}
+            >
               <span class={reactionEmojiClass}>
                 {reaction.isPaid ? (
                   '\u2B50'
@@ -95,9 +92,9 @@ const getTagHref = (tag: string) => `/search/result?q=${encodeURIComponent(`#${t
                 )}
               </span>
               <span class={reactionCountClass}>{reaction.count}</span>
-            </span>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     )
   }
@@ -115,7 +112,7 @@ const getTagHref = (tag: string) => `/search/result?q=${encodeURIComponent(`#${t
   }
 
   {
-    COMMENTS && isItem && (
+    commentsEnabled && isItem && discussionChannel && (
       <section class={commentsClass} aria-label="Comments">
         {/* Telegram comments are the only intentional client-side JS exception. */}
         <script

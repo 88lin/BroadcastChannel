@@ -1,6 +1,7 @@
 ---
 import List from '../../components/list.astro'
 import { getTimelinePage } from '../../lib/telegram'
+import type { SeoMeta } from '../../types'
 
 let channel
 
@@ -10,9 +11,9 @@ try {
   return Astro.redirect('/')
 }
 
-channel.seo = {
+const pageSeo: SeoMeta = {
   noindex: true,
 }
 ---
 
-<List channel={channel} pageHeading={channel.title} />
+<List channel={channel} pageHeading={channel.title} pageSeo={pageSeo} />

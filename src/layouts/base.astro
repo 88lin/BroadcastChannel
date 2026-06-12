@@ -1,20 +1,19 @@
 ---
 import '../styles/app.css'
-import { SEO } from 'astro-seo'
-import { getEnv } from '../lib/env'
 import { Icon } from 'astro-icon/components'
-import backToTopIcon from '../assets/back-to-top.svg'
-import voidFile from '../assets/void.png'
-import { siteTitleStyle } from '../lib/ui'
-import type { NavItem } from '../types'
+import { SEO } from 'astro-seo'
+import BackToTop from '../components/BackToTop.astro'
+import ChannelAvatar from '../components/ChannelAvatar.astro'
+import { getBooleanEnv, getEnv, getPodcastUrl, getStringEnv, parseDelimitedItems } from '../lib/env'
+import { buildSocialLinks } from '../lib/social'
+import { siteTitleClass } from '../lib/style-classes'
 
 const { SITE_URL, RSS_URL, RSS_PREFIX } = Astro.locals
-const { channel } = Astro.props
+const { channel, seo: pageSeo } = Astro.props
 
 const localeEnv = getEnv(import.meta.env, Astro, 'LOCALE')
 const locale = typeof localeEnv === 'string' ? localeEnv : undefined
-
-const seo = channel?.seo
+const seo = pageSeo ?? channel?.seo
 
 function normalizePathname(pathname: string): string {
   return pathname.replace(/\/$/, '') || '/'
@@ -40,15 +39,9 @@ const { pathname } = new URL(canonical)
 const currentPathname = normalizePathname(pathname)
 const twitterEnv = getEnv(import.meta.env, Astro, 'TWITTER')
 const twitter = typeof twitterEnv === 'string' ? twitterEnv : undefined
-const staticProxy = getEnv(import.meta.env, Astro, 'STATIC_PROXY') ?? '/static/'
 const pageTitle = seo?.title?.trim()
 const siteTitle = channel?.title ?? ''
 const seoDescription = seo?.text ?? channel?.description
-const avatarUrl = channel?.avatarNeedsProxy
-  ? channel.avatar?.startsWith('http')
-    ? `${staticProxy}${channel.avatar}`
-    : undefined
-  : toSiteAssetUrl(channel?.avatar)
 const avatarImageSource = channel?.avatarNeedsProxy ? channel.avatar : toSiteAssetUrl(channel?.avatar)
 const shareImage = avatarImageSource?.startsWith('http')
   ? channel?.avatarNeedsProxy
@@ -69,8 +62,8 @@ const seoParams = {
   title: pageTitle,
   description: seoDescription,
   canonical,
-  noindex: seo?.noindex ?? getEnv(import.meta.env, Astro, 'NOINDEX'),
-  nofollow: seo?.nofollow ?? getEnv(import.meta.env, Astro, 'NOFOLLOW'),
+  noindex: seo?.noindex ?? getBooleanEnv(import.meta.env, Astro, 'NOINDEX'),
+  nofollow: seo?.nofollow ?? getBooleanEnv(import.meta.env, Astro, 'NOFOLLOW'),
   openGraph: {
     basic: {
       type: isArticle ? 'article' : 'website',
@@ -101,103 +94,29 @@ const seoParams = {
   },
 }
 
-const googleSearchSiteEnv = getEnv(import.meta.env, Astro, 'GOOGLE_SEARCH_SITE')
-const GOOGLE_SEARCH_SITE = typeof googleSearchSiteEnv === 'string' ? googleSearchSiteEnv : undefined
+const GOOGLE_SEARCH_SITE = getEnv(import.meta.env, Astro, 'GOOGLE_SEARCH_SITE')
 const searchAction = GOOGLE_SEARCH_SITE ? 'https://www.google.com/search' : `${SITE_URL}search/result`
-const PODCASRT = getEnv(import.meta.env, Astro, 'PODCASRT')
-const TWITTER = getEnv(import.meta.env, Astro, 'TWITTER')
-const GITHUB = getEnv(import.meta.env, Astro, 'GITHUB')
-const TELEGRAM = getEnv(import.meta.env, Astro, 'TELEGRAM')
-const DISCORD = getEnv(import.meta.env, Astro, 'DISCORD')
-const MASTODON = getEnv(import.meta.env, Astro, 'MASTODON')
-const BLUESKY = getEnv(import.meta.env, Astro, 'BLUESKY')
+const socialLinks = buildSocialLinks({
+  rssUrl: RSS_URL,
+  podcast: getPodcastUrl(import.meta.env, Astro),
+  twitter,
+  github: getStringEnv(import.meta.env, Astro, 'GITHUB'),
+  telegram: getStringEnv(import.meta.env, Astro, 'TELEGRAM'),
+  discord: getStringEnv(import.meta.env, Astro, 'DISCORD'),
+  mastodon: getStringEnv(import.meta.env, Astro, 'MASTODON'),
+  bluesky: getStringEnv(import.meta.env, Astro, 'BLUESKY'),
+})
 
 const HEADER_INJECT = getEnv(import.meta.env, Astro, 'HEADER_INJECT')
 const FOOTER_INJECT = getEnv(import.meta.env, Astro, 'FOOTER_INJECT')
 const defaultBannerText =
   '请确保网络环境可正常访问订阅链接。部分链接需代理环境下导入，请自行筛选可用节点，可以点击评论区查看其中分享的节点是否可用！请勿相信网站中的任何广告！'
-const SHOW_BANNER = getEnv(import.meta.env, Astro, 'SHOW_BANNER')
 const bannerTextEnv = getEnv(import.meta.env, Astro, 'BANNER_TEXT')
 const bannerText = typeof bannerTextEnv === 'string' ? bannerTextEnv.trim() : defaultBannerText
-const showBanner = SHOW_BANNER !== false && Boolean(bannerText)
+const showBanner = getBooleanEnv(import.meta.env, Astro, 'SHOW_BANNER') !== false && Boolean(bannerText)
 const TAGS = getEnv(import.meta.env, Astro, 'TAGS')
 const LINKS = getEnv(import.meta.env, Astro, 'LINKS')
-const navsEnv = getEnv(import.meta.env, Astro, 'NAVS')
-const navs: NavItem[] = (typeof navsEnv === 'string' ? navsEnv : '')
-  .split(';')
-  .filter(Boolean)
-  .map((link) => {
-    const [title = '', href = ''] = link.split(',')
-    return {
-      title,
-      href,
-    }
-  })
-const socialLinks = [
-  {
-    href: RSS_URL,
-    title: 'RSS Feed',
-    label: 'RSS Feed',
-    icon: 'ri:rss-line',
-    rel: 'alternate noopener noreferrer',
-    type: 'application/rss+xml',
-  },
-  PODCASRT && {
-    href: PODCASRT,
-    title: 'Podcast',
-    label: 'Podcast',
-    icon: 'ri:mic-line',
-    rel: 'noopener noreferrer',
-  },
-  TWITTER &&
-    TWITTER.length > 0 && {
-      href: `https://x.com/${TWITTER}`,
-      title: 'Twitter',
-      label: 'Twitter / X',
-      icon: 'ri:twitter-x-line',
-      rel: 'noopener noreferrer',
-    },
-  GITHUB &&
-    GITHUB.length > 0 && {
-      href: `https://github.com/${GITHUB}`,
-      title: 'GitHub',
-      label: 'GitHub',
-      icon: 'ri:github-line',
-      rel: 'noopener noreferrer',
-    },
-  TELEGRAM &&
-    TELEGRAM.length > 0 && {
-      href: `https://t.me/${TELEGRAM}`,
-      title: 'Telegram',
-      label: 'Telegram',
-      icon: 'ri:telegram-line',
-      rel: 'noopener noreferrer',
-    },
-  DISCORD &&
-    DISCORD.length > 0 && {
-      href: DISCORD,
-      title: 'Discord',
-      label: 'Discord',
-      icon: 'ri:discord-line',
-      rel: 'noopener noreferrer',
-    },
-  MASTODON &&
-    MASTODON.length > 0 && {
-      href: `https://${MASTODON}`,
-      title: 'Mastodon',
-      label: 'Mastodon',
-      icon: 'ri:mastodon-line',
-      rel: 'noopener noreferrer',
-    },
-  BLUESKY &&
-    BLUESKY.length > 0 && {
-      href: `https://bsky.app/profile/${BLUESKY}`,
-      title: 'BlueSky',
-      label: 'Bluesky',
-      icon: 'ri:bluesky-line',
-      rel: 'noopener noreferrer',
-    },
-].filter(Boolean)
+const navs = parseDelimitedItems(getEnv(import.meta.env, Astro, 'NAVS'))
 
 const layoutShellClass = 'mx-5'
 const layoutGridClass = 'mx-auto flex w-full max-w-[920px] flex-col sm:items-start'
@@ -208,7 +127,7 @@ const topNavClass =
 const topNavBrandClass =
   'site-top-brand inline-flex max-w-full min-w-0 self-start items-center gap-2 rounded-full px-1.5 py-1 text-[15px] font-semibold leading-none text-heading no-underline hover:no-underline md:self-auto md:shrink-0'
 const topNavLogoClass = 'h-7 w-7 shrink-0 rounded-full border border-line bg-code object-cover shadow-soft'
-const topNavBrandTextClass = 'truncate'
+const topNavBrandTextClass = `truncate ${siteTitleClass}`
 const topNavGroupClass = 'flex w-full min-w-0 items-center gap-1.5 sm:justify-center md:w-auto md:flex-none'
 const navListClass = 'm-0 flex min-w-0 list-none flex-wrap items-center gap-1.5 p-0 md:flex-nowrap md:gap-3'
 const navItemClass = 'flex items-center text-[14px] leading-none'
@@ -230,9 +149,6 @@ const searchInputClass =
 const footerClass = 'text-[13px] leading-none text-footer'
 const footerLinkClass =
   'inline-flex min-h-9 items-center rounded-full border border-[#93c5fd]/80 bg-[#ebf4ff]/80 px-4 font-medium text-[#1e73be] no-underline shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition duration-100 hover:border-[#60a5fa] hover:bg-[#dbeafe] hover:text-[#155f9f] hover:no-underline'
-const backToTopClass =
-  'pointer-events-auto z-[1000] flex h-8 w-8 items-center justify-center rounded-full bg-code text-[24px] opacity-90 transition-transform duration-300 hover:-translate-y-[3px] active:translate-y-px'
-const backToTopIconClass = 'h-auto w-auto [filter:var(--icon-secondary-filter)]'
 const skipLinkText = 'Skip to main content'
 const searchLabelText = 'Search'
 ---
@@ -274,8 +190,8 @@ const searchLabelText = 'Search'
     <header class={topNavWrapClass} aria-label="站点导航">
       <div class={topNavClass}>
         <a href={SITE_URL} title={channel?.title} class={topNavBrandClass}>
-          <img
-            src={avatarUrl ?? voidFile.src}
+          <ChannelAvatar
+            channel={channel}
             alt=""
             loading="eager"
             fetchpriority="high"
@@ -283,7 +199,7 @@ const searchLabelText = 'Search'
             height="28"
             class={topNavLogoClass}
           />
-          <span class={topNavBrandTextClass} style={siteTitleStyle}>{channel?.title}</span>
+          <span class={topNavBrandTextClass}>{channel?.title}</span>
         </a>
         <div class={topNavGroupClass}>
           <nav aria-label="Primary navigation">
@@ -388,11 +304,7 @@ const searchLabelText = 'Search'
         </div>
       </div>
     </main>
-    <div id="back-to-top-wrapper">
-      <a href="#main-content" id="back-to-top" class={backToTopClass} aria-label="Back to top">
-        <img {...backToTopIcon} class={backToTopIconClass} alt="" />
-      </a>
-    </div>
+    <BackToTop />
     <script is:inline>
       ;(() => {
         const storageKey = 'broadcast-channel:read-posts:v1'

@@ -1,21 +1,10 @@
 ---
-import { getEnv } from '../../lib/env'
-import voidFile from '../../assets/void.png'
+import ChannelAvatar from '../../components/ChannelAvatar.astro'
 import List from '../../components/list.astro'
+import { siteTitleClass } from '../../lib/style-classes'
 import { getChannelPost, getChannelSummary } from '../../lib/telegram'
-import { siteTitleStyle } from '../../lib/ui'
 
 const { SITE_URL } = Astro.locals
-const absoluteSiteUrl = SITE_URL.startsWith('http') ? SITE_URL : new URL(SITE_URL, Astro.url.origin).toString()
-
-function toSiteAssetUrl(value: string | undefined): string | undefined {
-  if (!value) {
-    return undefined
-  }
-
-  return value.startsWith('http') ? value : new URL(value, absoluteSiteUrl).toString()
-}
-
 const channelInfo = await getChannelSummary(Astro)
 
 if (!Astro.params.id) {
@@ -23,27 +12,14 @@ if (!Astro.params.id) {
 }
 
 const post = await getChannelPost(Astro, Astro.params.id)
-const staticProxy = getEnv(import.meta.env, Astro, 'STATIC_PROXY') ?? '/static/'
-const avatarUrl = channelInfo.avatarNeedsProxy
-  ? channelInfo.avatar?.startsWith('http')
-    ? `${staticProxy}${channelInfo.avatar}`
-    : undefined
-  : toSiteAssetUrl(channelInfo.avatar)
-
 const channel = {
   ...(channelInfo || {}),
-  posts: [post],
-  seo: post,
+  posts: post ? [post] : [],
 }
-
-const notFoundChannel = {
-  ...(channelInfo || {}),
-  posts: [],
-  seo: {
-    title: 'Post Not Found',
-    text: 'The requested post could not be found.',
-    noindex: true,
-  },
+const notFoundSeo = {
+  title: 'Post Not Found',
+  text: 'The requested post could not be found.',
+  noindex: true,
 }
 
 if (!post) {
@@ -54,34 +30,45 @@ const breadcrumbClass = 'mb-5 py-[10px] font-semibold'
 const breadcrumbListClass = 'm-0 flex list-none items-center p-0'
 const breadcrumbLinkClass = 'inline-flex items-center no-underline'
 const breadcrumbAvatarClass = 'block h-5 w-5 rounded-full border-2 border-white object-cover shadow-soft'
-const breadcrumbTitleClass = 'ml-[10px] flex-1 text-[14px] text-heading'
+const breadcrumbTitleClass = `ml-[10px] flex-1 text-[14px] text-heading ${siteTitleClass}`
 const notFoundMessageClass =
   'ml-[3px] border-l-2 border-line py-[30px] pl-[15px] text-base leading-[1.6] text-muted sm:pl-[30px]'
 ---
 
 {
   !post ? (
-    <List channel={notFoundChannel} before={false} after={false} isItem={true} pageHeading="Post Not Found">
+    <List
+      channel={channel}
+      before={false}
+      after={false}
+      isItem={true}
+      pageHeading="Post Not Found"
+      pageSeo={notFoundSeo}
+    >
       <div class={notFoundMessageClass}>The requested post could not be found.</div>
     </List>
   ) : (
-    <List channel={channel} before={false} after={false} isItem={true} pageHeading={post.title || channel.title}>
+    <List
+      channel={channel}
+      before={false}
+      after={false}
+      isItem={true}
+      pageHeading={post.title || channel.title}
+      pageSeo={post}
+    >
       <nav slot="header" class={breadcrumbClass} aria-label="Breadcrumb">
         <ol class={breadcrumbListClass}>
           <li>
             <a href={SITE_URL} class={breadcrumbLinkClass} title={channel?.title}>
-              <img
-                src={avatarUrl ?? voidFile.src}
+              <ChannelAvatar
+                channel={channel}
                 alt={channel?.title}
                 loading="eager"
-                decoding="async"
                 width="20"
                 height="20"
                 class={breadcrumbAvatarClass}
               />
-              <span class={breadcrumbTitleClass} style={siteTitleStyle}>
-                {channel.title}
-              </span>
+              <span class={breadcrumbTitleClass}>{channel.title}</span>
             </a>
           </li>
         </ol>

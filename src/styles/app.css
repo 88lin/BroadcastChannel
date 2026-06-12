@@ -23,9 +23,13 @@
   --color-link-hover: rgb(30, 115, 190);
   --color-line: rgb(229, 231, 235);
   --color-footer: rgb(107, 114, 128);
+  --color-paid: #9a6a00;
+  --color-paid-line: rgba(154, 106, 0, 0.28);
+  --color-paid-surface: rgba(255, 196, 0, 0.12);
   --shadow-soft: 0 6px 12px rgba(59, 130, 246, 0.08);
   --shadow-craft: none;
   --radius-panel: 6px;
+  --radius-chip: 4px;
   --radius-media: 8px;
 }
 
