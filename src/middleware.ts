@@ -13,6 +13,14 @@ function getEncodedTagSearchQuery(pathname: string): string {
   }
 }
 
+export function isHtmlResponse(response: Response): boolean {
+  return response.headers.get('content-type')?.includes('text/html') ?? false
+}
+
+export function shouldApplyDefaultCache(response: Response): boolean {
+  return response.status >= 200 && response.status < 400 && !response.headers.has('Cache-Control')
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.SITE_URL = `${import.meta.env.SITE ?? ''}${import.meta.env.BASE_URL}`
   context.locals.RSS_URL = `${context.locals.SITE_URL}rss.xml`
@@ -34,11 +42,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
     : await next()
 
   if (!response.bodyUsed) {
-    if (response.headers.get('Content-type') === 'text/html') {
+    if (isHtmlResponse(response)) {
       response.headers.set('Speculation-Rules', '"/rules/prefetch.json"')
     }
 
-    if (!response.headers.has('Cache-Control')) {
+    if (shouldApplyDefaultCache(response)) {
       response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=1800, stale-while-revalidate=86400')
     }
   }

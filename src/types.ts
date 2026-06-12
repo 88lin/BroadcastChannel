@@ -53,7 +53,7 @@ export interface TimelinePage {
   pageSize: number
 }
 
-export interface EnvCapableAstro {
+export interface AstroEnvContext {
   locals?: App.Locals & {
     runtime?: {
       env?: Record<string, string | undefined>
@@ -63,7 +63,16 @@ export interface EnvCapableAstro {
   url?: URL
 }
 
+export type EnvCapableAstro = AstroEnvContext
+
 export interface NavItem {
   title: string
   href: string
+}
+
+export interface TagCloudItem {
+  href: string
+  label: string
+  title?: string
+  external?: boolean
 }
