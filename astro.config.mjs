@@ -9,12 +9,17 @@ import astroIcon from 'astro-icon'
 import { defineConfig } from 'astro/config'
 import { provider } from 'std-env'
 
+const cloudflareAdapter = cloudflare()
+const cloudflareProviders = new Set(['cloudflare', 'cloudflare_pages', 'cloudflare_workers'])
+
 const providers = {
   vercel: vercel({
     isr: false,
     edgeMiddleware: false,
   }),
-  cloudflare_pages: cloudflare(),
+  cloudflare: cloudflareAdapter,
+  cloudflare_pages: cloudflareAdapter,
+  cloudflare_workers: cloudflareAdapter,
   netlify: netlify({
     cacheOnDemandPages: false,
     edgeMiddleware: false,
@@ -28,6 +33,7 @@ const providers = {
 const adapterProvider = (process.env.HOME === '/dev/shm/home' && process.env.TMPDIR === '/dev/shm/tmp')
   ? 'edgeone'
   : process.env.SERVER_ADAPTER || provider
+const isCloudflareAdapter = cloudflareProviders.has(adapterProvider)
 
 // https://astro.build/config
 export default defineConfig({
@@ -41,7 +47,7 @@ export default defineConfig({
     ssr: {
       noExternal: process.env.DOCKER ? !!process.env.DOCKER : undefined,
       external: [
-        ...adapterProvider === 'cloudflare_pages'
+        ...isCloudflareAdapter
           ? [
               'module',
               'url',

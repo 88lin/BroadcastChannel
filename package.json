@@ -8,6 +8,8 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
+    "build:cloudflare": "node scripts/build-cloudflare.mjs",
+    "deploy:cloudflare": "pnpm build:cloudflare && wrangler deploy --config dist/server/wrangler.json",
     "preview": "astro preview",
     "astro": "astro",
     "lint": "eslint .",
@@ -52,7 +54,8 @@
     "std-env": "^4.1.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.8",
+    "wrangler": "^4.99.0"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint-staged"
