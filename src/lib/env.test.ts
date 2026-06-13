@@ -15,7 +15,7 @@ describe('env parsing helpers', () => {
     expect(parseCsvList('alpha, , beta,, gamma ')).toEqual(['alpha', 'beta', 'gamma'])
   })
 
-  it('falls back when legacy runtime env access throws', () => {
+  it('falls back when runtime env access throws', () => {
     const Astro = {
       locals: {
         get runtime() {

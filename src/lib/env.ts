@@ -23,8 +23,7 @@ function getRuntimeEnv(Astro: AstroEnvContext, name: string): string | undefined
 /**
  * Reads an env variable from Vite's import.meta.env first, then falls back to
  * legacy Astro runtime env bindings when present, then process.env as a last
- * resort. Cloudflare Workers exposes text bindings through process.env when
- * nodejs_compat process env population is enabled.
+ * resort for other server adapters.
  *
  * Boolean strings ("true" / "false") are normalized to actual booleans so
  * callers can use simple truthy checks.
