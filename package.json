@@ -8,8 +8,6 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
-    "build:cloudflare": "node scripts/build-cloudflare.mjs",
-    "deploy:cloudflare": "pnpm build:cloudflare && wrangler deploy --config dist/server/wrangler.json",
     "preview": "astro preview",
     "astro": "astro",
     "lint": "eslint .",
@@ -34,14 +32,14 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.0.0",
-    "@astrojs/cloudflare": "^13.7.0",
-    "@astrojs/netlify": "^7.0.13",
-    "@astrojs/node": "^10.1.4",
-    "@astrojs/vercel": "^10.0.8",
+    "@astrojs/cloudflare": "^12.6.13",
+    "@astrojs/netlify": "^6.6.5",
+    "@astrojs/node": "^9.5.5",
+    "@astrojs/vercel": "^9.0.5",
     "@edgeone/astro": "^1.1.2",
     "@tailwindcss/vite": "^4.3.0",
     "@types/prismjs": "^1.26.6",
-    "astro": "^6.4.6",
+    "astro": "^5.18.2",
     "astro-eslint-parser": "^1.4.0",
     "astro-seo": "^1.1.0",
     "baseline-browser-mapping": "^2.10.35",
@@ -54,8 +52,7 @@
     "std-env": "^4.1.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.8",
-    "wrangler": "^4.99.0"
+    "vitest": "^4.1.8"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint-staged"
