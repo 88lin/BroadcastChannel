@@ -9,17 +9,12 @@ import astroIcon from 'astro-icon'
 import { defineConfig } from 'astro/config'
 import { provider } from 'std-env'
 
-const cloudflareAdapter = cloudflare()
-const cloudflareProviders = new Set(['cloudflare', 'cloudflare_pages', 'cloudflare_workers'])
-
 const providers = {
   vercel: vercel({
     isr: false,
     edgeMiddleware: false,
   }),
-  cloudflare: cloudflareAdapter,
-  cloudflare_pages: cloudflareAdapter,
-  cloudflare_workers: cloudflareAdapter,
+  cloudflare_pages: cloudflare(),
   netlify: netlify({
     cacheOnDemandPages: false,
     edgeMiddleware: false,
@@ -33,12 +28,15 @@ const providers = {
 const adapterProvider = (process.env.HOME === '/dev/shm/home' && process.env.TMPDIR === '/dev/shm/tmp')
   ? 'edgeone'
   : process.env.SERVER_ADAPTER || provider
-const isCloudflareAdapter = cloudflareProviders.has(adapterProvider)
 
 // https://astro.build/config
 export default defineConfig({
   output: 'server',
   adapter: providers[adapterProvider] || providers.node,
+  // The app does not use Astro.session; avoid requiring a Cloudflare Pages KV binding.
+  session: {
+    driver: 'memory',
+  },
   integrations: [
     astroIcon(),
   ],
@@ -47,7 +45,7 @@ export default defineConfig({
     ssr: {
       noExternal: process.env.DOCKER ? !!process.env.DOCKER : undefined,
       external: [
-        ...isCloudflareAdapter
+        ...adapterProvider === 'cloudflare_pages'
           ? [
               'module',
               'url',
