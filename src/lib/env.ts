@@ -2,8 +2,10 @@ import type { AstroEnvContext, NavItem } from '../types'
 
 const PROCESS_GLOBAL_KEY = 'process'
 
+type Env = Record<string, string | undefined>
+
 interface ProcessLike {
-  env?: Record<string, string | undefined>
+  env?: Env
 }
 
 function getProcessEnv(name: string): string | undefined {
@@ -21,21 +23,20 @@ function getRuntimeEnv(Astro: AstroEnvContext, name: string): string | undefined
 }
 
 /**
- * Reads an env variable from Vite's import.meta.env first, then falls back to
- * legacy Astro runtime env bindings when present, then process.env as a last
- * resort for other server adapters.
+ * Runtime envs should win over Vite's build-time import.meta.env values.
+ * Keep the legacy Astro runtime binding path for Cloudflare Pages SSR.
  *
  * Boolean strings ("true" / "false") are normalized to actual booleans so
  * callers can use simple truthy checks.
  */
 export function getEnv(
-  env: Record<string, string | undefined>,
+  env: Env,
   Astro: AstroEnvContext,
   name: string,
 ): string | boolean | undefined {
-  const value = env[name]
-    ?? getRuntimeEnv(Astro, name)
+  const value = getRuntimeEnv(Astro, name)
     ?? getProcessEnv(name)
+    ?? env[name]
   if (value === 'true')
     return true
   if (value === 'false')
@@ -44,7 +45,7 @@ export function getEnv(
 }
 
 export function getStringEnv(
-  env: Record<string, string | undefined>,
+  env: Env,
   Astro: AstroEnvContext,
   name: string,
 ): string | undefined {
@@ -53,14 +54,14 @@ export function getStringEnv(
 }
 
 export function getStaticProxy(
-  env: Record<string, string | undefined>,
+  env: Env,
   Astro: AstroEnvContext,
 ): string {
   return getStringEnv(env, Astro, 'STATIC_PROXY') ?? '/static/'
 }
 
 export function getPodcastUrl(
-  env: Record<string, string | undefined>,
+  env: Env,
   Astro: AstroEnvContext,
 ): string | undefined {
   return getStringEnv(env, Astro, 'PODCAST') ?? getStringEnv(env, Astro, 'PODCASRT')
@@ -71,7 +72,7 @@ export function isEnabled(value: string | boolean | undefined): boolean {
 }
 
 export function getBooleanEnv(
-  env: Record<string, string | undefined>,
+  env: Env,
   Astro: AstroEnvContext,
   name: string,
 ): boolean | undefined {
