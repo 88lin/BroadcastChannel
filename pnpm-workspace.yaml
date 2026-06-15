@@ -14,3 +14,6 @@ overrides:
   semver@6.0.0: 6.3.1
   tar@6.1.11: 7.5.16
   tar@6.2.1: 7.5.16
+peerDependencyRules:
+  allowedVersions:
+    prismjs-components-importer@0.2.0>prismjs: 1.30.0
