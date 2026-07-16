@@ -14,7 +14,7 @@ export function getVideoStickers($: CheerioAPI, message: MessageSelection, optio
 
     fragments.push(`
     <div class="w-64 bg-none">
-      <video src="${videoSrc ? getProxiedUrl(staticProxy, videoSrc) : ''}" width="256" height="256" aria-label="Video sticker" preload muted autoplay loop playsinline disablepictureinpicture>
+      <video class="sticker" src="${videoSrc ? getProxiedUrl(staticProxy, videoSrc) : ''}" width="256" height="256" aria-label="Video sticker" preload muted autoplay loop playsinline disablepictureinpicture>
         <img class="sticker" src="${imageSrc ? getProxiedUrl(staticProxy, imageSrc) : ''}" alt="Video sticker" width="256" height="256" loading="${loading}" />
       </video>
     </div>
@@ -64,7 +64,8 @@ export function getTgsStickers($: CheerioAPI, message: MessageSelection, options
       }
     }
 
-    root.find('img').attr('alt', 'Sticker').attr('loading', loading)
+    root.find('img').addClass('sticker').attr('alt', 'Sticker').attr('loading', loading)
+    root.find('video').addClass('sticker')
     fragments.push($.html(root))
   }
 

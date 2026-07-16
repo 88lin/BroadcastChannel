@@ -45,7 +45,7 @@ importers:
         specifier: ^0.2.0
         version: 0.2.0(prismjs@1.30.0)
       sanitize-html:
-        specifier: ^2.17.5
+        specifier: 2.17.5
         version: 2.17.5
     devDependencies:
       '@antfu/eslint-config':

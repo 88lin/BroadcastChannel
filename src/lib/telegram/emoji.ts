@@ -1,4 +1,10 @@
+import { DEFAULT_TELEGRAM_HOST } from '../env'
 import { getProxiedUrl } from './url'
+
+interface CustomEmojiImageOptions {
+  telegramHost?: string
+  staticProxy?: string
+}
 
 export function normalizeEmoji(emoji: string): string {
   const emojiMap: Record<string, string> = {
@@ -11,11 +17,15 @@ export function normalizeEmoji(emoji: string): string {
   return emojiMap[emoji] ?? emoji
 }
 
-export function getCustomEmojiImage(emojiId: string | undefined, staticProxy = ''): string | null {
+export function getCustomEmojiImage(
+  emojiId: string | undefined,
+  options: CustomEmojiImageOptions = {},
+): string | null {
   if (!emojiId) {
     return null
   }
 
-  const imageUrl = `https://t.me/i/emoji/${emojiId}.webp`
+  const { telegramHost = DEFAULT_TELEGRAM_HOST, staticProxy = '' } = options
+  const imageUrl = `https://${telegramHost}/i/emoji/${emojiId}.webp`
   return getProxiedUrl(staticProxy, imageUrl)
 }
