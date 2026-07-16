@@ -4,6 +4,8 @@ const PROCESS_GLOBAL_KEY = 'process'
 
 type Env = Record<string, string | undefined>
 
+export const DEFAULT_TELEGRAM_HOST = 'telegram.me'
+
 interface ProcessLike {
   env?: Env
 }
@@ -58,6 +60,13 @@ export function getStaticProxy(
   Astro: AstroEnvContext,
 ): string {
   return getStringEnv(env, Astro, 'STATIC_PROXY') ?? '/static/'
+}
+
+export function getTelegramHost(
+  env: Env,
+  Astro: AstroEnvContext,
+): string {
+  return getStringEnv(env, Astro, 'TELEGRAM_HOST') ?? DEFAULT_TELEGRAM_HOST
 }
 
 export function getPodcastUrl(

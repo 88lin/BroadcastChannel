@@ -187,12 +187,13 @@ export async function getChannelPost(context: RequestContext, id: string): Promi
     }
 
     const isPrimaryChannel = targetChannel === channels[0]
-    const { $, channel, staticProxy, reactionsEnabled } = await loadChannelDocument(context, {
+    const { $, channel, telegramHost, staticProxy, reactionsEnabled } = await loadChannelDocument(context, {
       channel: targetChannel,
       id: targetId,
     })
     const post = await extractPost($, null, {
       channel,
+      telegramHost,
       staticProxy,
       reactionsEnabled,
       isMultiChannel,
@@ -234,12 +235,12 @@ export async function getChannelSummary(context: RequestContext): Promise<Channe
 
   const channel = await loadCachedValue<ChannelInfo>(cacheKey, async () => {
     const [primaryChannel] = getChannels(context)
-    const { $, staticProxy } = await loadChannelDocument(context, { channel: primaryChannel })
+    const { $, telegramHost, staticProxy } = await loadChannelDocument(context, { channel: primaryChannel })
     const channelInfo: ChannelInfo = {
       posts: [],
       title: $('.tgme_channel_info_header_title').text(),
       description: $('.tgme_channel_info_description').text(),
-      descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy })).html(),
+      descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { telegramHost, staticProxy })).html(),
       avatar: normalizeOptionalUrlAttribute($('.tgme_page_photo_image img').attr('src')),
       avatarNeedsProxy: true,
     }
@@ -447,7 +448,7 @@ async function getTimelineSourcePage(
   let offsetToSkip = source.offset
 
   while (true) {
-    const { $, channel, staticProxy, reactionsEnabled } = await loadChannelDocument(context, {
+    const { $, channel, telegramHost, staticProxy, reactionsEnabled } = await loadChannelDocument(context, {
       channel: channelName,
       before: currentBefore,
     })
@@ -455,7 +456,7 @@ async function getTimelineSourcePage(
     if (channelIndex === 0 && !primaryChannelInfo.title) {
       primaryChannelInfo.title = $('.tgme_channel_info_header_title').text()
       primaryChannelInfo.description = $('.tgme_channel_info_description').text()
-      primaryChannelInfo.descriptionHTML = (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy })).html()
+      primaryChannelInfo.descriptionHTML = (await modifyHTMLContent($, $('.tgme_channel_info_description'), { telegramHost, staticProxy })).html()
       primaryChannelInfo.avatar = normalizeOptionalUrlAttribute($('.tgme_page_photo_image img').attr('src'))
     }
 
@@ -463,6 +464,7 @@ async function getTimelineSourcePage(
     const extractedPosts = (await Promise.all(
       postNodes.map((item, index) => extractPost($, item, {
         channel,
+        telegramHost,
         staticProxy,
         index,
         reactionsEnabled,
@@ -696,7 +698,7 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
         return []
       }
 
-      const { $, channel, staticProxy, reactionsEnabled } = await loadChannelDocument(context, {
+      const { $, channel, telegramHost, staticProxy, reactionsEnabled } = await loadChannelDocument(context, {
         channel: targetChannel,
         before: channelBefore,
         after: channelAfter,
@@ -707,7 +709,7 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
         primaryChannelInfo = {
           title: $('.tgme_channel_info_header_title').text(),
           description: $('.tgme_channel_info_description').text(),
-          descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy })).html(),
+          descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { telegramHost, staticProxy })).html(),
           avatar: normalizeOptionalUrlAttribute($('.tgme_page_photo_image img').attr('src')),
         }
       }
@@ -716,6 +718,7 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
       const extractedPosts = (await Promise.all(
         postNodes.map((item, postIndex) => extractPost($, item, {
           channel,
+          telegramHost,
           staticProxy,
           index: postIndex,
           reactionsEnabled,

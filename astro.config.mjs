@@ -25,9 +25,12 @@ const providers = {
   edgeone: edgeone(),
 }
 
-const adapterProvider = (process.env.HOME === '/dev/shm/home' && process.env.TMPDIR === '/dev/shm/tmp')
-  ? 'edgeone'
-  : process.env.SERVER_ADAPTER || provider
+const isEdgeOne = provider === 'edgeone_pages'
+  || Boolean(process.env.EDGEONE_PROJECT_ID)
+  || Boolean(process.env.EO_MAKERS)
+  || (process.env.HOME === '/dev/shm/home' && process.env.TMPDIR === '/dev/shm/tmp')
+
+const adapterProvider = process.env.SERVER_ADAPTER || (isEdgeOne ? 'edgeone' : provider)
 
 // https://astro.build/config
 export default defineConfig({
@@ -43,7 +46,7 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     ssr: {
-      noExternal: process.env.DOCKER ? !!process.env.DOCKER : undefined,
+      noExternal: (process.env.DOCKER || adapterProvider === 'edgeone') ? true : undefined,
       external: [
         ...adapterProvider === 'cloudflare_pages'
           ? [
