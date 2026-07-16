@@ -132,6 +132,7 @@ NOINDEX=false
 HIDE_DESCRIPTION=false
 
 ## Telegram 主机名称和静态资源代理，不建议修改
+# 默认使用 telegram.me；可按需覆盖为 telegram.dog
 TELEGRAM_HOST=telegram.dog
 STATIC_PROXY=
 

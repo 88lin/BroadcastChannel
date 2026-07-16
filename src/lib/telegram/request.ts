@@ -3,7 +3,7 @@ import type { LoadedChannelDocument, RequestContext } from './types'
 import * as cheerio from 'cheerio'
 import { defineCachedFunction } from 'ocache'
 import { $fetch } from 'ofetch'
-import { getBooleanEnv, getEnv, getStaticProxy, getStringEnv } from '../env'
+import { getBooleanEnv, getEnv, getStaticProxy, getTelegramHost } from '../env'
 
 interface TelegramHtmlParams {
   host: string
@@ -57,8 +57,8 @@ async function fetchTelegramHtml({ host, channel, id, before, after, q, headers 
 const loadTelegramHtml = defineCachedFunction(fetchTelegramHtml, {
   name: 'telegram-html',
   maxAge: 60 * 5,
-  swr: true,
-  staleMaxAge: 60 * 60,
+  // Detached refreshes lack a Cloudflare waitUntil context and can leave a pending promise stuck.
+  swr: false,
   getKey: ({ host, channel, id, before, after, q }) => JSON.stringify({
     host,
     channel,
@@ -74,7 +74,7 @@ export async function loadChannelDocument(
   params: LoadChannelDocumentParams = {},
 ): Promise<LoadedChannelDocument> {
   const { before, after, q, id } = params
-  const host = getStringEnv(import.meta.env, context, 'TELEGRAM_HOST') ?? 't.me'
+  const host = getTelegramHost(import.meta.env, context)
   const channel = params.channel ?? getRequiredEnv(context, 'CHANNEL')
   const staticProxy = getStaticProxy(import.meta.env, context)
   const reactionsEnabled = getBooleanEnv(import.meta.env, context, 'REACTIONS')
@@ -91,6 +91,7 @@ export async function loadChannelDocument(
   return {
     $: cheerio.load(html, {}, false),
     channel,
+    telegramHost: host,
     staticProxy,
     reactionsEnabled,
   }
