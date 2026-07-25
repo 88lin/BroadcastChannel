@@ -198,6 +198,19 @@
       font-weight: 700;
     }
 
+    .tgme_widget_message_forwarded_from {
+      display: block;
+      margin-block: 0 0.625rem;
+      color: var(--color-muted);
+      font-size: 0.8125em;
+      font-weight: 400;
+      line-height: 1.5;
+
+      > a {
+        font-weight: 600;
+      }
+    }
+
     pre {
       font-size: 15.3px;
       line-height: 32px;
