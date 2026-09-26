@@ -1,5 +1,18 @@
 @layer components {
   .content {
+    .tgme_widget_message_forwarded_from {
+      display: block;
+      margin-block: 0 0.625rem;
+      color: var(--muted-color);
+      font-size: 0.8125em;
+      font-weight: 400;
+      line-height: 1.5;
+
+      > a {
+        font-weight: 600;
+      }
+    }
+
     ul:has(> li > input[type='checkbox']:disabled) {
       @apply ps-0;
     }
