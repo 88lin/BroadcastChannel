@@ -48,6 +48,23 @@ const tagStandaloneClass = 'mt-5'
 const tagLinkClass =
   'inline-flex items-center rounded-2xl border border-transparent bg-transparent px-3 py-1 text-[13px] font-medium text-muted no-underline transition hover:border-[#93c5fd] hover:bg-[#ebf4ff] hover:text-heading hover:shadow-[0_6px_12px_rgba(59,130,246,0.08)] hover:no-underline'
 const commentsClass = 'tg-comments mt-5 border-t border-line pt-4'
+const commentsFrameScript = `<script>
+  const container = document.currentScript?.closest('.tg-comments')
+  if (container) {
+    const titleFrame = () => {
+      const frame = container.querySelector('iframe')
+      if (!frame) return false
+      frame.title = 'Telegram comments'
+      return true
+    }
+    if (!titleFrame()) {
+      const observer = new MutationObserver(() => {
+        if (titleFrame()) observer.disconnect()
+      })
+      observer.observe(container, { childList: true, subtree: true })
+    }
+  }
+</script>`
 ---
 
 <article
@@ -124,6 +141,7 @@ const commentsClass = 'tg-comments mt-5 border-t border-line pt-4'
           data-colorful="1"
           data-color="454545"
         />
+        <Fragment set:html={commentsFrameScript} />
       </section>
     )
   }
