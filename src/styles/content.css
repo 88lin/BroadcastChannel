@@ -714,6 +714,12 @@
       border: none;
     }
 
+    /* 上游同名规则依赖 --border-color/--surface-color/--muted-color，
+       本地未定义这些变量，因此在此用本地设计 token 重新实现。 */
+    .sticker-fallback {
+      @apply inline-flex items-center rounded-panel border border-line bg-surface px-2 py-1 text-[0.875em] text-muted leading-normal;
+    }
+
     .spoiler-button {
       cursor: pointer;
 
