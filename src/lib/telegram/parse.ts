@@ -7,7 +7,7 @@ import { getAudio, getForwardedFrom, getImages, getImageStickers, getLinkPreview
 import { renderRawContent } from './renderers/raw'
 import { normalizeUrlAttributes } from './url'
 
-const TITLE_PREVIEW_REGEX = /^.*?(?=[。\n]|http\S)/g
+const TITLE_PREVIEW_REGEX = /^.*?(?=[。\n]|http\S)/
 
 function isNonEmptyString(value: string | null | undefined): value is string {
   return Boolean(value)
