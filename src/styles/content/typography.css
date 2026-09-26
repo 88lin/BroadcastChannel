@@ -118,7 +118,7 @@
 
     figure {
       margin-inline-start: 0;
-      margin-inline-end: 10px;
+      margin-inline-end: var(--box-margin);
     }
 
     figcaption {
