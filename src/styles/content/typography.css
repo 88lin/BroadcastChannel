@@ -98,14 +98,15 @@
     }
 
     pre {
-      @apply whitespace-pre-wrap rounded-panel border border-line bg-code p-2.5 shadow-soft;
+      @apply whitespace-pre-wrap p-2.5;
+      background-color: var(--code-background-color);
+      color: var(--code-color);
       font-size: 0.9em;
     }
 
     > pre {
       @apply overflow-x-auto;
-      width: calc(100% - var(--box-margin));
-      max-width: 456px;
+      width: 100%;
     }
 
     code {
@@ -113,7 +114,11 @@
     }
 
     :not(pre) > code {
-      @apply rounded-panel bg-surface px-1 py-0.5;
+      padding: 2px;
+      border-radius: 3px;
+      background-color: var(--code-background-color);
+      color: var(--code-color);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
     }
 
     figure {
@@ -127,24 +132,19 @@
     }
 
     > iframe {
-      @apply rounded-media border border-line shadow-soft;
       max-width: calc(100% - 1px);
     }
 
     table {
-      @apply table-auto w-full border-collapse p-0 shadow-soft;
+      @apply table-auto w-full border-collapse p-0;
     }
 
     table tr {
-      @apply m-0 border-t border-line bg-surface p-0;
-    }
-
-    table tr:nth-child(2n) {
-      @apply bg-code;
+      @apply m-0 p-0;
     }
 
     table tr th {
-      @apply m-0 border border-line bg-code px-3 py-1.5 font-bold;
+      @apply m-0 border border-line px-3 py-1.5 text-left font-bold;
     }
 
     table tr td {
@@ -163,9 +163,11 @@
     }
 
     blockquote {
-      @apply rounded-panel border-l-[3px] border-accent bg-surface p-1.5 pl-2.5;
+      border-left: 1px solid var(--blockquote-color);
       margin: 16px 0;
-      font-size: 0.8em;
+      padding-left: 1rem;
+      color: var(--blockquote-color);
+      font-style: italic;
     }
   }
 }
