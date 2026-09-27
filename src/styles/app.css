@@ -17,6 +17,16 @@
   scrollbar-color: var(--color-line) transparent;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .channel-navigation {
+    scrollbar-width: none;
+  }
+
+  .channel-navigation::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 .channel-navigation a:link,
 .channel-navigation a:visited {
   display: block;
