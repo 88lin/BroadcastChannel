@@ -37,6 +37,7 @@
 
 ## Env and deployment gotchas
 
+- Preserve the branch-specific `site` in `astro.config.mjs` when syncing branches: `main` uses `https://clash.88lin.eu.org`, `hub` uses `https://hub.88lin.eu.org`, and remote `Notes` (local `notes`) uses `https://learn.88lin.eu.org`. Rebuild after changing it; `--site` can override it for local preview or another deployment.
 - `CHANNEL` is required server-side; missing it throws during Telegram fetch.
 - `TELEGRAM_HOST` defaults in code to `telegram.me`; `.env.example` uses `telegram.dog` as an override example.
 - `STATIC_PROXY` defaults to `/static/` only when unset; set it to an empty string for direct Telegram asset URLs.

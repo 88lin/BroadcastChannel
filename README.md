@@ -173,7 +173,15 @@ AD_KEYWORDS=广告,推广,赞助
 
 ## 站点地址与 SEO
 
-部署时请在 `astro.config.mjs` 中设置 `site: 'https://你的正式域名'`，或在构建命令中传入站点地址：
+本仓库的部署分支已在各自的 `astro.config.mjs` 中设置正式站点地址：
+
+| 远程分支                | 正式站点地址                 |
+| ----------------------- | ---------------------------- |
+| `main`                  | `https://clash.88lin.eu.org` |
+| `hub`                   | `https://hub.88lin.eu.org`   |
+| `Notes`（本地 `notes`） | `https://learn.88lin.eu.org` |
+
+分支间同步代码时，请保留各自的 `site` 值。更换域名或部署自己的站点时，修改该配置，或在构建命令中覆盖地址；本地 preview 可覆盖为 `http://127.0.0.1:4321`：
 
 ```sh
 pnpm build --site https://example.com
