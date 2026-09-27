@@ -1,11 +1,14 @@
 ---
 import Header from '../components/header.astro'
 import Item from '../components/item.astro'
+import ChannelNav from './ChannelNav.astro'
+import { getSelectedChannel, withChannel } from '../lib/channels'
 import Layout from '../layouts/base.astro'
 
 const { SITE_URL } = Astro.locals
 const { channel, before = true, after = true, isItem = false, pageHeading, pageSeo } = Astro.props
 const posts = channel.posts ?? []
+const selectedChannel = getSelectedChannel(Astro)
 
 const beforeCursor = channel.timeline?.beforeCursor
 const afterCursor = channel.timeline?.afterCursor
@@ -20,6 +23,16 @@ const paginationPlaceholderClass = 'inline-block w-[34px]'
   <slot name="header">
     <Header channel={channel} />
   </slot>
+  {!isItem && <ChannelNav />}
+  {
+    !posts.length && !isItem && (
+      <p class="my-10 text-center text-sm text-muted" role="status">
+        {Astro.url.pathname.startsWith('/search')
+          ? '没有找到匹配的内容，试试其他关键词或频道。'
+          : '暂无可显示的内容，可以切换频道查看。'}
+      </p>
+    )
+  }
   <ol class={itemsClass} aria-label={isItem ? 'Post' : 'Posts'}>
     {
       posts.map((post) => (
@@ -34,7 +47,11 @@ const paginationPlaceholderClass = 'inline-block w-[34px]'
   <nav class={paginationClass} aria-label="Pagination">
     {
       before && beforeCursor ? (
-        <a href={`${SITE_URL}before/${encodeURIComponent(beforeCursor)}`} title="Before" class="pagination-btn">
+        <a
+          href={withChannel(`${SITE_URL}before/${encodeURIComponent(beforeCursor)}`, selectedChannel)}
+          title="Before"
+          class="pagination-btn"
+        >
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -57,7 +74,11 @@ const paginationPlaceholderClass = 'inline-block w-[34px]'
     <div class={paginationInfoClass}></div>
     {
       after && afterCursor ? (
-        <a href={`${SITE_URL}after/${encodeURIComponent(afterCursor)}`} title="After" class="pagination-btn">
+        <a
+          href={withChannel(`${SITE_URL}after/${encodeURIComponent(afterCursor)}`, selectedChannel)}
+          title="After"
+          class="pagination-btn"
+        >
           After
           <svg
             viewBox="0 0 24 24"

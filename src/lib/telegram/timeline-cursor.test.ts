@@ -6,6 +6,21 @@ const root = { before: '', offset: 0 }
 const rawCursor = (payload: unknown) => btoa(JSON.stringify(payload))
 
 describe('timeline cursors', () => {
+  it('preserves and checks the selected channel in scoped back links', () => {
+    const payload = { v: 2 as const, channel: 'beta', sources: [{ before: '0', offset: 0 }, root], history: [] }
+    const encoded = encodeTimelineCursor(payload)
+    expect(decodeTimelineCursor(encoded)).toEqual(payload)
+    expect(isRootTimelineCursor(encoded, 'beta')).toBe(true)
+    expect(() => isRootTimelineCursor(encoded, 'alpha')).toThrow(InvalidTimelineCursorError)
+    expect(() => isRootTimelineCursor(encoded)).toThrow(InvalidTimelineCursorError)
+  })
+
+  it.each(['', '../beta', 'alpha,beta', 123, null])('rejects invalid channel scope %s', (channel) => {
+    const encoded = rawCursor({ v: 2, c: channel, s: [['', 0]], h: [] })
+    expect(() => decodeTimelineCursor(encoded)).toThrow(InvalidTimelineCursorError)
+    expect(() => encodeTimelineCursor({ v: 2, channel, sources: [root] } as Parameters<typeof encodeTimelineCursor>[0])).toThrow(TypeError)
+  })
+
   it('round-trips sources and back navigation in URL-safe form', () => {
     const payload = { v: 2 as const, sources: [source, root], history: [[root, root]] }
     const encoded = encodeTimelineCursor(payload)

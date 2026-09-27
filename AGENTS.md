@@ -4,7 +4,7 @@
 
 - Treat this file as the maintained repo guide; `CLAUDE.md` may lag behind it.
 - No repo-local `opencode.json`, `.opencode/`, `.cursor/rules/`, `.cursorrules`, or `.github/copilot-instructions.md` is present.
-- For any visible UI/design change, read `@DESIGN.md` first; implementation tokens live in `src/styles/app.css` and `src/styles/content/**`.
+- For any visible UI/design change, read `DESIGN.md` first; implementation tokens live in `src/styles/app.css` and `src/styles/content/**`.
 
 ## Stack and commands
 
@@ -13,7 +13,7 @@
 - Lint/typecheck/test: `pnpm lint`, `pnpm typecheck`, and `pnpm test` for repo gates; `pnpm lint:fix` for auto-fix; `pnpm eslint <path>` for focused lint checks.
 - Focused tests: `pnpm test -- <path>` or `pnpm test -- -t <name>`; keep new unit coverage focused.
 - `postinstall` installs `simple-git-hooks` when `.git` exists; pre-commit runs `lint-staged` with `eslint --fix`.
-- CI does not validate app behavior: `docker.yml` only builds/pushes the GHCR image, and `sync.yml` only syncs forks from upstream.
+- `ci.yml` checks locked installation, lint, typecheck, tests, and build on `main`, `hub`, and `Notes` pushes/PRs. It runs independently of hosting deployments and `docker.yml`; `sync.yml` only syncs forks from upstream.
 
 ## Validation shortcuts
 
@@ -33,6 +33,7 @@
 - Static proxy logic is shared in `src/lib/static-proxy.ts`; both Astro route `src/pages/static/[...url].ts` and Vercel Edge Function `api/static/index.ts` use it, with `/static/:path*` rewritten by `vercel.json`.
 - Do not broaden the static proxy target whitelist unless the task explicitly changes the security model.
 - Timeline navigation uses `ChannelInfo.timeline` and versioned base64url cursors from `timeline-cursor.ts`; sitemap cursors remain separate. New cursors are capped at 2048 characters and retain at most 8 previous pages, then link home.
+- `src/lib/channels.ts` validates `?channel=` against configured sources. Timeline cursors and parsed caches include the selected channel; keep the full configured channel order for stable post IDs. Feeds and search pass an explicit selection to `getChannelInfo`; sitemap calls stay unfiltered. Preserve channel selection in navigation, tag/search links, and feed URLs.
 - Keep shared domain interfaces in `src/types.ts`; there are no TS path aliases, so use relative imports.
 
 ## Env and deployment gotchas

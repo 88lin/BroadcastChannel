@@ -1,5 +1,6 @@
 export interface TimelineCursorPayload {
   v: 2
+  channel?: string
   sources?: TimelineSourceCursor[]
   history?: TimelineSourceCursor[][]
 }
@@ -8,6 +9,7 @@ type CompactTimelineSourceCursor = [string, number]
 
 interface CompactTimelineCursorPayload {
   v: 2
+  c?: string
   s: CompactTimelineSourceCursor[]
   h: CompactTimelineSourceCursor[][]
 }
@@ -77,6 +79,9 @@ function validateCompactPayload(value: unknown): asserts value is CompactTimelin
   if (payload?.v !== 2) {
     throw new TypeError('Unsupported timeline cursor version')
   }
+  if (payload.c !== undefined && (typeof payload.c !== 'string' || !/^\w{1,64}$/.test(payload.c))) {
+    throw new TypeError('Invalid timeline channel scope')
+  }
   if (!Array.isArray(payload.s) || !payload.s.length) {
     throw new TypeError('Invalid timeline sources payload')
   }
@@ -104,6 +109,7 @@ function validateCompactPayload(value: unknown): asserts value is CompactTimelin
 export function encodeTimelineCursor(payload: TimelineCursorPayload): string {
   const compactPayload = {
     v: payload.v,
+    c: payload.channel,
     s: payload.sources?.map(toCompactTimelineSourceCursor),
     h: (payload.history ?? []).slice(-MAX_HISTORY_ENTRIES).map(entry => entry.map(toCompactTimelineSourceCursor)),
   }
@@ -130,6 +136,7 @@ export function decodeTimelineCursor(cursor: string): TimelineCursorPayload {
 
     return {
       v: 2,
+      ...(payload.c ? { channel: payload.c } : {}),
       sources: payload.s.map(fromCompactTimelineSourceCursor),
       history: payload.h.slice(-MAX_HISTORY_ENTRIES).map(entry => entry.map(fromCompactTimelineSourceCursor)),
     }
@@ -139,7 +146,13 @@ export function decodeTimelineCursor(cursor: string): TimelineCursorPayload {
   }
 }
 
-export function isRootTimelineCursor(cursor: string): boolean {
+export function isRootTimelineCursor(cursor: string, selectedChannel = ''): boolean {
   const payload = decodeTimelineCursor(cursor)
-  return payload.sources!.every(source => source.before === '' && source.offset === 0)
+  if ((payload.channel ?? '') !== selectedChannel) {
+    throw new InvalidTimelineCursorError('Timeline cursor belongs to a different channel selection')
+  }
+  if (!selectedChannel)
+    return payload.sources!.every(source => source.before === '' && source.offset === 0)
+  return payload.sources!.filter(source => source.before === '').length === 1
+    && payload.sources!.every(source => (source.before === '' || source.before === '0') && source.offset === 0)
 }

@@ -38,6 +38,16 @@ describe.each([
   ['sanitizeContentHtml', sanitizeContentHtml],
   ['sanitizeFeedHtml', sanitizeFeedHtml],
 ])('%s safety', (_name, sanitize) => {
+  it('scopes inline local tags without changing external links or weakening sanitization', () => {
+    const html = '<a href="/search/result?q=%23AI">#AI</a><a href="https://example.com/search/result?q=test">External</a><a href="javascript:alert(1)" onclick="alert(1)">Unsafe</a>'
+    const selected = sanitize(html, 'beta')
+    expect(selected).toContain('href="/search/result?q=%23AI&amp;channel=beta"')
+    expect(selected).toContain('href="https://example.com/search/result?q=test"')
+    expect(selected).not.toContain('javascript:')
+    expect(selected).not.toContain('onclick')
+    expect(sanitize(html)).not.toContain('channel=')
+  })
+
   it('removes scripts and dangerous attributes', () => {
     const result = sanitize(`
       <p onclick="alert('click')">

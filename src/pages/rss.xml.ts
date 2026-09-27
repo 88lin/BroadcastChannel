@@ -1,16 +1,17 @@
 import type { APIRoute } from 'astro'
 import rss from '@astrojs/rss'
+import { withChannel } from '../lib/channels'
 import { getBooleanEnv } from '../lib/env'
 import { getFeedData } from '../lib/feed'
 import { sanitizeFeedHtml } from '../lib/sanitize'
 
 export const GET: APIRoute = async (context) => {
-  const { channel, posts, siteUrl, title } = await getFeedData(context)
+  const { channel, posts, siteUrl, title, channelFilter = '' } = await getFeedData(context)
 
   const response = await rss({
     title,
     description: channel.description,
-    site: siteUrl.toString(),
+    site: withChannel(siteUrl.toString(), channelFilter),
     trailingSlash: false,
     stylesheet: getBooleanEnv(import.meta.env, context, 'RSS_BEAUTIFY') ? '/rss.xsl' : undefined,
     items: posts.map(item => ({
@@ -18,7 +19,7 @@ export const GET: APIRoute = async (context) => {
       title: item.title,
       description: item.description,
       pubDate: new Date(item.datetime),
-      content: sanitizeFeedHtml(item.content),
+      content: sanitizeFeedHtml(item.content, channelFilter),
     })),
   })
 

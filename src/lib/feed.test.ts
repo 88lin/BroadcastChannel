@@ -3,6 +3,22 @@ import { describe, expect, it } from 'vitest'
 import { buildJsonFeed } from './feed'
 
 describe('json feed builder', () => {
+  it('preserves channel and tag subscriptions without changing stable item URLs', () => {
+    const feed = buildJsonFeed({
+      channel: { posts: [], title: 'Site', description: '', descriptionHTML: null, avatar: undefined },
+      posts: [{ id: 'beta-123', title: 'Post', type: 'text', datetime: '2026-01-02T03:04:05Z', tags: [], text: 'Text', content: '<p>Text</p>', reactions: [] }],
+      siteUrl: new URL('https://site.example/blog/'),
+      tag: 'C++',
+      channelFilter: 'beta',
+      title: 'Scoped feed',
+    })
+    expect(new URL(feed.feed_url).searchParams.get('channel')).toBe('beta')
+    expect(new URL(feed.feed_url).searchParams.get('tag')).toBe('C++')
+    expect(feed.home_page_url).toBe('https://site.example/blog/?channel=beta')
+    expect(feed.items[0].url).toBe('https://site.example/blog/posts/beta-123')
+    expect(feed.items[0].id).toBe(feed.items[0].url)
+  })
+
   it('retains the selected tag in the subscription URL', () => {
     const feed = buildJsonFeed({
       channel: { posts: [], title: 'Channel', description: '', descriptionHTML: null, avatar: undefined },

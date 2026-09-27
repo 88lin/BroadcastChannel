@@ -54,6 +54,79 @@ afterEach(() => {
 })
 
 describe('multi-channel timeline', () => {
+  const selectedContext = (channel: string): RequestContext => ({ request: new Request(`https://site.example/?channel=${channel}`) })
+
+  it('isolates mixed, primary and secondary pages without changing post IDs', async () => {
+    const mixed = (await api.getTimelinePage(context)).channel
+    const primary = (await api.getTimelinePage(selectedContext('alpha'))).channel
+    const secondary = (await api.getTimelinePage(selectedContext('beta'))).channel
+    expect(primary.posts).toHaveLength(24)
+    expect(primary.posts.every(post => /^\d+$/.test(post.id))).toBe(true)
+    expect(secondary.posts).toHaveLength(24)
+    expect(secondary.posts.every(post => post.id.startsWith('beta-'))).toBe(true)
+    expect(secondary.title).toBe(mixed.title)
+    expect(primary.timeline?.afterCursor).toBeUndefined()
+    expect(secondary.timeline?.afterCursor).toBeUndefined()
+    expect((await api.getTimelinePage(context)).channel.posts).toEqual(mixed.posts)
+  })
+
+  it('fetches only selected posts and preserves all pages and back navigation', async () => {
+    const selected = selectedContext('beta')
+    const first = (await api.getTimelinePage(selected)).channel
+    const second = (await api.getTimelinePage(selected, first.timeline!.beforeCursor)).channel
+    const third = (await api.getTimelinePage(selected, second.timeline!.beforeCursor)).channel
+    expect([...first.posts, ...second.posts, ...third.posts].map(post => post.id))
+      .toEqual(Array.from({ length: 50 }, (_, n) => `beta-${50 - n}`))
+    expect(third.timeline?.beforeCursor).toBeUndefined()
+    expect(api.isRootTimelineCursor(second.timeline!.afterCursor!, 'beta')).toBe(true)
+    const previous = (await api.getTimelinePage(selected, third.timeline!.afterCursor)).channel
+    expect(previous.posts).toEqual(second.posts)
+    // The primary source is read once for site identity, never paged for its posts.
+    expect(loadDocument.mock.calls.filter(([, params]) => params?.channel === 'alpha')).toHaveLength(1)
+  })
+
+  it('rejects cursors copied between selections even after warming caches', async () => {
+    const mixed = (await api.getTimelinePage(context)).channel
+    const selected = selectedContext('beta')
+    const beta = (await api.getTimelinePage(selected)).channel
+    await api.getTimelinePage(selected, beta.timeline!.beforeCursor)
+    await expect(api.getTimelinePage(selectedContext('alpha'), beta.timeline!.beforeCursor)).rejects.toBeInstanceOf(api.InvalidTimelineCursorError)
+    await expect(api.getTimelinePage(context, beta.timeline!.beforeCursor)).rejects.toBeInstanceOf(api.InvalidTimelineCursorError)
+    await expect(api.getTimelinePage(selected, mixed.timeline!.beforeCursor)).rejects.toBeInstanceOf(api.InvalidTimelineCursorError)
+  })
+
+  it('rejects scoped cursors that reactivate an unselected source', async () => {
+    const cursor = btoa(JSON.stringify({ v: 2, c: 'beta', s: [['', 0], ['45', 0]], h: [] }))
+    await expect(api.getTimelinePage(selectedContext('beta'), cursor)).rejects.toBeInstanceOf(api.InvalidTimelineCursorError)
+    expect(loadDocument).not.toHaveBeenCalled()
+  })
+
+  it('separates filtered feed/search queries while leaving sitemap queries unfiltered', async () => {
+    const selected = selectedContext('beta')
+    const feed = await api.getChannelInfo(selected, { channel: 'beta', q: '#tag' })
+    expect(feed.posts.length).toBeGreaterThan(0)
+    expect(feed.posts.every(post => post.id.startsWith('beta-'))).toBe(true)
+    expect(loadDocument).toHaveBeenCalledWith(selected, expect.objectContaining({ channel: 'beta', q: '#tag' }))
+    expect(loadDocument.mock.calls.some(([, params]) => params?.channel === 'alpha' && params.q === '#tag')).toBe(false)
+    const mixed = await api.getChannelInfo(selected, { q: '#tag' })
+    expect(mixed.posts.some(post => /^\d+$/.test(post.id))).toBe(true)
+    expect((await api.getChannelInfo(selected)).sitemapAfterCursor).toBe('50-50')
+  })
+
+  it('uses the configured channel order in cache identity', async () => {
+    const first = (await api.getTimelinePage(context)).channel
+    vi.stubEnv('CHANNEL', 'beta,alpha')
+    const reordered = (await api.getTimelinePage(context)).channel
+    expect(reordered.title).toBe('beta')
+    expect(reordered.posts[0].id).not.toBe(first.posts[0].id)
+  })
+
+  it('rejects unknown channels without fetching upstream data', async () => {
+    await expect(api.getTimelinePage(selectedContext('unknown'))).rejects.toThrow('Unknown channel')
+    await expect(api.getChannelInfo(context, { channel: 'unknown' })).rejects.toThrow('Unknown channel')
+    expect(loadDocument).not.toHaveBeenCalled()
+  })
+
   it('merges channels in descending time order with stable IDs', async () => {
     const { channel, pageSize } = await api.getTimelinePage(context)
     expect(pageSize).toBe(24)
