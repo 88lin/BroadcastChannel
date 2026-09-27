@@ -26,6 +26,11 @@ const MAX_SOURCE_OFFSET = 1000
 const SOURCE_ID_REGEX = /^\d{1,20}$/
 
 export class InvalidTimelineCursorError extends Error {}
+export class TimelineCursorBudgetError extends RangeError {}
+
+export function isRecoverableTimelineCursorError(error: unknown): boolean {
+  return error instanceof InvalidTimelineCursorError || error instanceof TimelineCursorBudgetError
+}
 
 const PERCENT_ESCAPE_REGEX = /%([0-9A-F]{2})/g
 const BASE64_PLUS_REGEX = /\+/g
@@ -121,7 +126,7 @@ export function encodeTimelineCursor(payload: TimelineCursorPayload): string {
     encoded = toBase64Url(JSON.stringify(compactPayload))
   }
   if (encoded.length > MAX_CURSOR_LENGTH) {
-    throw new RangeError('Timeline source state exceeds the URL budget')
+    throw new TimelineCursorBudgetError('Timeline source state exceeds the URL budget')
   }
   return encoded
 }

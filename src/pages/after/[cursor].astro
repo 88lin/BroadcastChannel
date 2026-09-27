@@ -1,7 +1,7 @@
 ---
 import List from '../../components/list.astro'
 import { getSelectedChannel, withChannel } from '../../lib/channels'
-import { InvalidTimelineCursorError, getTimelinePage, isRootTimelineCursor } from '../../lib/telegram'
+import { getTimelinePage, isRecoverableTimelineCursorError, isRootTimelineCursor } from '../../lib/telegram'
 import type { SeoMeta } from '../../types'
 
 const selectedChannel = getSelectedChannel(Astro)
@@ -15,7 +15,7 @@ try {
     return Astro.redirect(timelineHome)
   }
 } catch (error) {
-  if (error instanceof InvalidTimelineCursorError) {
+  if (isRecoverableTimelineCursorError(error)) {
     return Astro.redirect(timelineHome)
   }
   throw error
@@ -26,7 +26,7 @@ let channel
 try {
   ;({ channel } = await getTimelinePage(Astro, Astro.params.cursor))
 } catch (error) {
-  if (error instanceof InvalidTimelineCursorError) {
+  if (isRecoverableTimelineCursorError(error)) {
     return Astro.redirect(timelineHome)
   }
   throw error
