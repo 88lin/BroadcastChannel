@@ -68,6 +68,8 @@ const target = query ? `${SITE_URL}search/result?q=${encodeURIComponent(query)}`
         return
       }
 
+      event.preventDefault()
+
       let distance = event.deltaY
       if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
         distance *= Number.parseFloat(getComputedStyle(navigation).lineHeight) || 16
@@ -85,7 +87,6 @@ const target = query ? `${SITE_URL}search/result?q=${encodeURIComponent(query)}`
       const nextScrollLeft = Math.max(0, Math.min(maxScrollLeft, navigation.scrollLeft + distance))
 
       if (nextScrollLeft !== navigation.scrollLeft) {
-        event.preventDefault()
         navigation.scrollLeft = nextScrollLeft
       }
     },

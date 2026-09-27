@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decodeTimelineCursor, encodeTimelineCursor, InvalidTimelineCursorError, isRootTimelineCursor } from './timeline-cursor'
+import { decodeTimelineCursor, encodeTimelineCursor, InvalidTimelineCursorError, isRecoverableTimelineCursorError, isRootTimelineCursor, TimelineCursorBudgetError } from './timeline-cursor'
 
 const source = { before: '123', offset: 4 }
 const root = { before: '', offset: 0 }
@@ -67,9 +67,18 @@ describe('timeline cursors', () => {
     expect(() => encodeTimelineCursor(payload as Parameters<typeof encodeTimelineCursor>[0])).toThrow(TypeError)
   })
 
-  it('reports an oversized generated source state as a server error, not an invalid incoming cursor', () => {
+  it('distinguishes an oversized generated source state from other range errors', () => {
     const payload = { v: 2 as const, sources: Array.from<typeof source>({ length: 1000 }).fill(source), history: [] }
+    expect(() => encodeTimelineCursor(payload)).toThrow(TimelineCursorBudgetError)
     expect(() => encodeTimelineCursor(payload)).toThrow(RangeError)
+  })
+
+  it('only recovers invalid input and cursor budget exhaustion during navigation', () => {
+    expect(isRecoverableTimelineCursorError(new InvalidTimelineCursorError('Invalid input'))).toBe(true)
+    expect(isRecoverableTimelineCursorError(new TimelineCursorBudgetError('URL budget exceeded'))).toBe(true)
+    expect(isRecoverableTimelineCursorError(new RangeError('Unrelated range error'))).toBe(false)
+    expect(isRecoverableTimelineCursorError(new TypeError('Invalid server state'))).toBe(false)
+    expect(isRecoverableTimelineCursorError(new Error('Upstream unavailable'))).toBe(false)
   })
 
   it.each([

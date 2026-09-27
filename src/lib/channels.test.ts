@@ -32,4 +32,14 @@ describe('channel selection', () => {
     expect(getPostChannel('123', ['alpha', 'beta'])).toBe('alpha')
     expect(getPostChannel('beta-123', ['alpha', 'beta'])).toBe('beta')
   })
+
+  it('matches the longest configured channel prefix for numeric post IDs', () => {
+    const channels = ['primary', 'foo', 'foo-bar', 'foo-bar-baz']
+    expect(getPostChannel('foo-bar-123', channels)).toBe('foo-bar')
+    expect(getPostChannel('foo-bar-baz-456', channels)).toBe('foo-bar-baz')
+    expect(getPostChannel('foo-123', channels)).toBe('foo')
+    expect(getPostChannel('foo-bar-not-a-post-id', channels)).toBe('primary')
+    expect(getPostChannel('foo-bar-', channels)).toBe('primary')
+    expect(channels).toEqual(['primary', 'foo', 'foo-bar', 'foo-bar-baz'])
+  })
 })

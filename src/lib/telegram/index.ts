@@ -11,7 +11,7 @@ import { loadChannelDocument } from './request'
 import { decodeTimelineCursor, encodeTimelineCursor, InvalidTimelineCursorError } from './timeline-cursor'
 import { normalizeUrlAttribute } from './url'
 
-export { InvalidTimelineCursorError, isRootTimelineCursor } from './timeline-cursor'
+export { InvalidTimelineCursorError, isRecoverableTimelineCursorError, isRootTimelineCursor } from './timeline-cursor'
 
 type CacheValue = ChannelInfo | Post
 
