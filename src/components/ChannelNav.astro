@@ -1,7 +1,6 @@
 ---
 import { getConfiguredChannels, getSelectedChannel, withChannel } from '../lib/channels'
 import { getChannelTitles } from '../lib/telegram/channel-titles'
-import { tagChipLinkClass } from '../lib/style-classes'
 
 const channels = getConfiguredChannels(Astro)
 const selectedChannel = getSelectedChannel(Astro)
@@ -15,19 +14,14 @@ const target = query ? `${SITE_URL}search/result?q=${encodeURIComponent(query)}`
 
 {
   channels.length > 1 && (
-    <section class="mt-5" aria-label="频道浏览">
-      <nav class="flex flex-wrap gap-2" aria-label="频道筛选">
-        <a
-          class={`${tagChipLinkClass} aria-[current=page]:font-semibold aria-[current=page]:underline`}
-          href={withChannel(target, '')}
-          aria-current={!selectedChannel ? 'page' : undefined}
-        >
+    <section class="channel-browser" aria-label="频道浏览">
+      <nav class="channel-navigation" aria-label="频道筛选">
+        <a href={withChannel(target, '')} aria-current={!selectedChannel ? 'page' : undefined}>
           全部频道
         </a>
         {channels.map((channel) => (
           <a
             href={withChannel(target, channel)}
-            class={`${tagChipLinkClass} aria-[current=page]:font-semibold aria-[current=page]:underline`}
             aria-current={selectedChannel === channel ? 'page' : undefined}
             title={`查看 ${channelTitles[channel]}`}
           >
@@ -36,7 +30,7 @@ const target = query ? `${SITE_URL}search/result?q=${encodeURIComponent(query)}`
         ))}
       </nav>
       {selectedChannel && (
-        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted">
+        <div class="channel-context">
           <span>{query ? `在 ${selectedTitle} 中搜索` : `正在浏览 ${selectedTitle}`}</span>
           <a href={RSS_URL} type="application/rss+xml">
             订阅此频道{query.startsWith('#') ? '的话题' : ''}
@@ -46,3 +40,16 @@ const target = query ? `${SITE_URL}search/result?q=${encodeURIComponent(query)}`
     </section>
   )
 }
+
+<script>
+  const navigation = document.querySelector<HTMLElement>('.channel-navigation')
+  const active = navigation?.querySelector<HTMLElement>('[aria-current="page"]')
+
+  if (navigation && active) {
+    const navigationBounds = navigation.getBoundingClientRect()
+    const activeBounds = active.getBoundingClientRect()
+    const leftOffset = activeBounds.left - navigationBounds.left
+    const centerOffset = (navigation.clientWidth - activeBounds.width) / 2
+    navigation.scrollLeft += leftOffset - centerOffset
+  }
+</script>
