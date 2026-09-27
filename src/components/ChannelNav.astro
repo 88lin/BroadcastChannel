@@ -1,0 +1,39 @@
+---
+import { getConfiguredChannels, getSelectedChannel, withChannel } from '../lib/channels'
+
+const channels = getConfiguredChannels(Astro)
+const selectedChannel = getSelectedChannel(Astro)
+const { SITE_URL, RSS_URL } = Astro.locals
+const isSearch = Astro.url.pathname.startsWith('/search')
+const query = isSearch ? Astro.url.searchParams.get('q') || '' : ''
+const target = query ? `${SITE_URL}search/result?q=${encodeURIComponent(query)}` : SITE_URL
+---
+
+{
+  channels.length > 1 && (
+    <section class="channel-browser" aria-label="频道浏览">
+      <nav class="channel-navigation" aria-label="频道筛选">
+        <a href={withChannel(target, '')} aria-current={!selectedChannel ? 'page' : undefined}>
+          全部频道
+        </a>
+        {channels.map((channel) => (
+          <a
+            href={withChannel(target, channel)}
+            aria-current={selectedChannel === channel ? 'page' : undefined}
+            title={`查看 @${channel}`}
+          >
+            @{channel}
+          </a>
+        ))}
+      </nav>
+      {selectedChannel && (
+        <div class="channel-context">
+          <span>{query ? `在 @${selectedChannel} 中搜索` : `正在浏览 @${selectedChannel}`}</span>
+          <a href={RSS_URL} type="application/rss+xml">
+            订阅此频道{query.startsWith('#') ? '的话题' : ''}
+          </a>
+        </div>
+      )}
+    </section>
+  )
+}

@@ -4,11 +4,13 @@ import { Icon } from 'astro-icon/components'
 import { SEO } from 'astro-seo'
 import BackToTop from '../components/BackToTop.astro'
 import ChannelAvatar from '../components/ChannelAvatar.astro'
+import { getSelectedChannel, withChannel } from '../lib/channels'
 import { getBooleanEnv, getEnv, getPodcastUrl, getStringEnv, parseDelimitedItems } from '../lib/env'
 import { buildSocialLinks } from '../lib/social'
 import { siteTitleClass } from '../lib/style-classes'
 
 const { SITE_URL, RSS_URL, RSS_PREFIX } = Astro.locals
+const selectedChannel = getSelectedChannel(Astro)
 const { channel, seo: pageSeo } = Astro.props
 
 const localeEnv = getEnv(import.meta.env, Astro, 'LOCALE')
@@ -30,6 +32,9 @@ function toSiteAssetUrl(value: string | undefined): string | undefined {
 const absoluteSiteUrl = SITE_URL.startsWith('http') ? SITE_URL : new URL(SITE_URL, Astro.url.origin).toString()
 const canonicalUrl = new URL(Astro.url.pathname, absoluteSiteUrl)
 const siteRootPathname = normalizePathname(new URL(absoluteSiteUrl).pathname)
+if (selectedChannel && normalizePathname(canonicalUrl.pathname) === siteRootPathname) {
+  canonicalUrl.searchParams.set('channel', selectedChannel)
+}
 const canonical =
   normalizePathname(canonicalUrl.pathname) === siteRootPathname
     ? canonicalUrl.toString()
@@ -95,7 +100,8 @@ const seoParams = {
 }
 
 const GOOGLE_SEARCH_SITE = getEnv(import.meta.env, Astro, 'GOOGLE_SEARCH_SITE')
-const searchAction = GOOGLE_SEARCH_SITE ? 'https://www.google.com/search' : `${SITE_URL}search/result`
+const useGoogleSearch = GOOGLE_SEARCH_SITE && !selectedChannel
+const searchAction = useGoogleSearch ? 'https://www.google.com/search' : `${SITE_URL}search/result`
 const socialLinks = buildSocialLinks({
   rssUrl: RSS_URL,
   podcast: getPodcastUrl(import.meta.env, Astro),
@@ -123,20 +129,21 @@ const layoutGridClass = 'mx-auto flex w-full max-w-[920px] flex-col sm:items-sta
 const mainPanelClass = 'w-full min-w-0 pb-5 pt-[10px] sm:flex-1 sm:pt-5'
 const topNavWrapClass = `mx-3 pt-4 sm:mx-5 ${showBanner ? 'md:sticky md:top-4' : 'md:fixed md:left-0 md:right-0 md:top-4'} md:z-50 md:mx-auto md:px-5 md:pt-0`
 const topNavClass =
-  'site-top-nav mx-auto flex w-full max-w-[920px] min-w-0 flex-col gap-3 overflow-hidden rounded-[26px] px-3 py-3 sm:px-4 md:h-[52px] md:flex-row md:items-center md:justify-between md:gap-4 md:py-2 md:pl-4 md:pr-2'
+  'site-top-nav mx-auto flex w-full max-w-[920px] min-w-0 flex-col gap-3 overflow-hidden rounded-[26px] px-3 py-3 sm:px-4 md:min-h-[52px] md:flex-row md:items-center md:justify-between md:gap-2 md:py-2 md:pl-4 md:pr-2'
 const topNavBrandClass =
-  'site-top-brand inline-flex max-w-full min-w-0 self-start items-center gap-2 rounded-full px-1.5 py-1 text-[15px] font-semibold leading-none text-heading no-underline hover:no-underline md:self-auto md:shrink-0'
+  'site-top-brand inline-flex max-w-full min-w-0 self-start items-center gap-2 rounded-full px-1.5 py-1 text-[15px] font-semibold leading-none text-heading no-underline hover:no-underline md:max-w-[200px] md:self-auto md:shrink-0'
 const topNavLogoClass = 'h-7 w-7 shrink-0 rounded-full border border-line bg-code object-cover shadow-soft'
 const topNavBrandTextClass = `truncate ${siteTitleClass}`
-const topNavGroupClass = 'flex w-full min-w-0 items-center gap-1.5 sm:justify-center md:w-auto md:flex-none'
-const navListClass = 'm-0 flex min-w-0 list-none flex-wrap items-center gap-1.5 p-0 md:flex-nowrap md:gap-3'
-const navItemClass = 'flex items-center text-[14px] leading-none'
+const topNavGroupClass = 'flex w-full min-w-0 items-center gap-1.5 sm:justify-center md:w-auto md:flex-1'
+const navListClass = 'm-0 flex min-w-0 list-none flex-wrap items-center gap-1.5 p-0 md:flex-nowrap md:gap-1'
+const navItemClass = 'flex shrink-0 items-center text-[14px] leading-none'
 const navLinkClass =
-  'nav-btn inline-flex h-10 min-w-0 items-center justify-center rounded-full px-3 py-1 text-[14px] font-semibold tracking-[0.1em] text-heading no-underline transition-all duration-100 ease-in-out hover:no-underline active:translate-y-0 md:min-w-[76px]'
+  'nav-btn inline-flex h-10 min-w-0 items-center justify-center rounded-full px-3 py-1 text-[14px] font-semibold tracking-[0.1em] text-heading no-underline transition-all duration-100 ease-in-out hover:no-underline active:translate-y-0 md:px-2'
 const navLinkCurrentClass = 'nav-btn--active font-medium'
 const skipLinkClass =
   'pointer-events-none absolute left-5 top-0 z-[1100] -translate-y-full rounded-panel bg-heading px-3 py-2 text-sm text-white no-underline transition-transform duration-150 focus-visible:pointer-events-auto focus-visible:translate-y-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-heading'
-const topNavActionClass = 'flex w-full min-w-0 flex-wrap items-center gap-2 sm:justify-end md:w-auto'
+const topNavActionClass =
+  'flex w-full min-w-0 flex-wrap items-center gap-2 sm:justify-end md:w-auto md:shrink-0 md:flex-nowrap'
 const socialNavClass = 'flex items-center gap-1'
 const socialLinkClass =
   'group inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-muted no-underline transition duration-100 hover:border-[#93c5fd] hover:bg-[#ebf4ff] hover:text-[#1e73be] hover:no-underline'
@@ -189,7 +196,7 @@ const searchLabelText = 'Search'
     <a href="#main-content" class={skipLinkClass}>{skipLinkText}</a>
     <header class={topNavWrapClass} aria-label="站点导航">
       <div class={topNavClass}>
-        <a href={SITE_URL} title={channel?.title} class={topNavBrandClass}>
+        <a href={withChannel(SITE_URL, selectedChannel)} title={channel?.title} class={topNavBrandClass}>
           <ChannelAvatar
             channel={channel}
             alt=""
@@ -202,11 +209,11 @@ const searchLabelText = 'Search'
           <span class={topNavBrandTextClass}>{channel?.title}</span>
         </a>
         <div class={topNavGroupClass}>
-          <nav aria-label="Primary navigation">
+          <nav class="min-w-0 md:overflow-x-auto" aria-label="Primary navigation">
             <ul class={navListClass}>
               <li class={navItemClass}>
                 <a
-                  href={SITE_URL}
+                  href={withChannel(SITE_URL, selectedChannel)}
                   title={channel?.title}
                   class:list={[navLinkClass, currentPathname === siteRootPathname && navLinkCurrentClass]}
                 >
@@ -217,7 +224,7 @@ const searchLabelText = 'Search'
                 TAGS ? (
                   <li class={navItemClass}>
                     <a
-                      href={`${SITE_URL}tags`}
+                      href={withChannel(`${SITE_URL}tags`, selectedChannel)}
                       title="Tags"
                       class:list={[navLinkClass, currentPathname === tagsPathname && navLinkCurrentClass]}
                     >
@@ -230,7 +237,7 @@ const searchLabelText = 'Search'
                 LINKS ? (
                   <li class={navItemClass}>
                     <a
-                      href={`${SITE_URL}links`}
+                      href={withChannel(`${SITE_URL}links`, selectedChannel)}
                       title="Links"
                       class:list={[navLinkClass, currentPathname === linksPathname && navLinkCurrentClass]}
                     >
@@ -270,14 +277,16 @@ const searchLabelText = 'Search'
             }
           </nav>
           <form class={searchFormClass} action={searchAction} method="get" role="search">
-            {GOOGLE_SEARCH_SITE ? <input type="hidden" name="as_sitesearch" value={GOOGLE_SEARCH_SITE} /> : null}
+            {useGoogleSearch ? <input type="hidden" name="as_sitesearch" value={GOOGLE_SEARCH_SITE} /> : null}
+            {selectedChannel ? <input type="hidden" name="channel" value={selectedChannel} /> : null}
             <label class="sr-only" for="search-query">{searchLabelText}</label>
             <input
               id="search-query"
               class={searchInputClass}
               type="search"
               name="q"
-              placeholder="Search"
+              placeholder={selectedChannel ? `搜索 @${selectedChannel}` : 'Search'}
+              value={Astro.url.searchParams.get('q') || ''}
               autocomplete="off"
               inputmode="search"
               spellcheck={false}
