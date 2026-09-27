@@ -2,6 +2,7 @@ import type { ChannelInfo, GetChannelInfoParams, Post, TimelinePage } from '../.
 import type { TimelineCursorPayload, TimelineSourceCursor } from './timeline-cursor'
 import type { RequestContext } from './types'
 import { LRUCache } from 'lru-cache'
+import { getConfiguredChannels, getSelectedChannel, resolveSelectedChannel } from '../channels'
 import { getBooleanEnv, getEnv, parseCsvList } from '../env'
 import { modifyHTMLContent } from './content'
 import { extractPost } from './parse'
@@ -98,21 +99,13 @@ async function loadCachedValue<T extends CacheValue | null>(
   return request
 }
 
-function getRequiredStringEnv(context: RequestContext, name: string): string {
-  const value = getEnv(import.meta.env, context, name)
-  if (typeof value !== 'string' || !value.trim()) {
-    throw new Error(`Missing required env: ${name}`)
-  }
-  return value
-}
-
 function getOptionalStringEnv(context: RequestContext, name: string): string | undefined {
   const value = getEnv(import.meta.env, context, name)
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
 
 function getChannels(context: RequestContext): string[] {
-  const channels = parseCsvList(getRequiredStringEnv(context, 'CHANNEL'))
+  const channels = getConfiguredChannels(context)
   if (!channels.length) {
     throw new Error('Missing required env: CHANNEL')
   }
@@ -142,7 +135,8 @@ export function isRenderablePost(post: Post | null | undefined): post is Post {
 }
 
 export async function getChannelPost(context: RequestContext, id: string): Promise<Post | null> {
-  const cacheKey = JSON.stringify({ scope: 'post', id })
+  const channels = getChannels(context)
+  const cacheKey = JSON.stringify({ scope: 'post', channels, id })
   const cachedResult = cache.get(cacheKey)
 
   if (cachedResult && !isChannelInfo(cachedResult)) {
@@ -150,7 +144,6 @@ export async function getChannelPost(context: RequestContext, id: string): Promi
   }
 
   const loadedPost = await loadCachedValue<Post | null>(cacheKey, async () => {
-    const channels = getChannels(context)
     const isMultiChannel = channels.length > 1
     let targetChannel = channels[0]
     let targetId = id
@@ -188,7 +181,7 @@ export async function getChannelPost(context: RequestContext, id: string): Promi
 }
 
 export async function getChannelSummary(context: RequestContext): Promise<ChannelInfo> {
-  const cacheKey = JSON.stringify({ scope: 'channel-summary' })
+  const cacheKey = JSON.stringify({ scope: 'channel-summary', channels: getChannels(context) })
   const cachedResult = cache.get(cacheKey)
 
   if (cachedResult && isChannelInfo(cachedResult)) {
@@ -312,9 +305,9 @@ function compareTimelineEntries(
   return compareRawIdsDesc(getPostRawId(a.id, channels), getPostRawId(b.id, channels))
 }
 
-function getDefaultTimelineSources(channels: string[]): TimelineSourceCursor[] {
-  return channels.map(() => ({
-    before: '',
+function getDefaultTimelineSources(channels: string[], selectedChannel = ''): TimelineSourceCursor[] {
+  return channels.map(channel => ({
+    before: selectedChannel && channel !== selectedChannel ? '0' : '',
     offset: 0,
   }))
 }
@@ -406,7 +399,9 @@ async function getTimelineSourcePage(
 }
 
 export async function getTimelinePage(context: RequestContext, cursor = ''): Promise<TimelinePage> {
-  const cacheKey = JSON.stringify({ scope: 'timeline', cursor })
+  const channels = getChannels(context)
+  const selectedChannel = getSelectedChannel(context)
+  const cacheKey = JSON.stringify({ scope: 'timeline', channels, selectedChannel, cursor })
   const cachedResult = cache.get(cacheKey)
 
   if (cachedResult && isChannelInfo(cachedResult)) {
@@ -417,9 +412,11 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
   }
 
   const brandedChannel = await loadCachedValue<ChannelInfo>(cacheKey, async () => {
-    const channels = getChannels(context)
     const filterConfig = getPostFilterConfig(context)
     const payload: TimelineCursorPayload = cursor ? decodeTimelineCursor(cursor) : { v: 2 }
+    if (cursor && (payload.channel ?? '') !== selectedChannel) {
+      throw new InvalidTimelineCursorError('Timeline cursor belongs to a different channel selection')
+    }
     if (cursor && (!payload.sources || payload.sources.length !== channels.length)) {
       throw new InvalidTimelineCursorError('Invalid timeline cursor sources state')
     }
@@ -428,8 +425,14 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
       throw new InvalidTimelineCursorError('Invalid timeline cursor history state')
     }
 
-    const sources = payload.sources ?? getDefaultTimelineSources(channels)
+    const initialSources = getDefaultTimelineSources(channels, selectedChannel)
+    const sources = payload.sources ?? initialSources
     const history = payload.history ?? []
+    if (selectedChannel && [sources, ...history].some(entry => entry.some((source, index) =>
+      channels[index] !== selectedChannel && (source.before !== '0' || source.offset !== 0),
+    ))) {
+      throw new InvalidTimelineCursorError('Timeline cursor contains an unselected source')
+    }
     // Exhausted sources are not fetched again, but the site's identity still comes from the primary channel.
     const primaryChannelInfo: Partial<ChannelInfo> = sources[0].before === '0'
       ? await getChannelSummary(context)
@@ -533,16 +536,18 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
     const beforeCursor = hasMoreBefore
       ? encodeTimelineCursor({
           v: 2,
+          channel: selectedChannel || undefined,
           sources: nextSources,
           history: history.concat([sources]),
         })
       : undefined
     // Keep recent back navigation bounded; the end of the retained window returns home.
     const previousSources = history.at(-1)
-      ?? (sources.some(source => source.before !== '' || source.offset !== 0) ? getDefaultTimelineSources(channels) : undefined)
+      ?? (sources.some((source, index) => source.before !== initialSources[index].before || source.offset !== 0) ? initialSources : undefined)
     const afterCursor = previousSources
       ? encodeTimelineCursor({
           v: 2,
+          channel: selectedChannel || undefined,
           sources: previousSources,
           history: history.slice(0, -1),
         })
@@ -568,7 +573,9 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
 
 export async function getChannelInfo(context: RequestContext, params: GetChannelInfoParams = {}): Promise<ChannelInfo> {
   const { before = '', after = '', q = '' } = params
-  const cacheKey = JSON.stringify({ scope: 'channel', before, after, q })
+  const channels = getChannels(context)
+  const selectedChannel = resolveSelectedChannel(channels, params.channel)
+  const cacheKey = JSON.stringify({ scope: 'channel', channels, selectedChannel, before, after, q })
   const cachedResult = cache.get(cacheKey)
 
   if (cachedResult && isChannelInfo(cachedResult)) {
@@ -576,16 +583,19 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
   }
 
   const brandedChannelInfo = await loadCachedValue<ChannelInfo>(cacheKey, async () => {
-    const channels = getChannels(context)
     const isMultiChannel = channels.length > 1
     const beforeCursors = before ? before.split('-') : []
     const afterCursors = after ? after.split('-') : []
     const filterConfig = getPostFilterConfig(context)
     let allPosts: Post[] = []
-    let primaryChannelInfo: Partial<ChannelInfo> = {}
+    let primaryChannelInfo: Partial<ChannelInfo> = selectedChannel && selectedChannel !== channels[0]
+      ? await getChannelSummary(context)
+      : {}
     const nextAfterCursors: string[] = Array.from({ length: channels.length }).fill('0') as string[]
 
     const fetchPromises = channels.map(async (targetChannel, index) => {
+      if (selectedChannel && targetChannel !== selectedChannel)
+        return []
       const channelBefore = beforeCursors[index] || ''
       const channelAfter = afterCursors[index] || ''
 

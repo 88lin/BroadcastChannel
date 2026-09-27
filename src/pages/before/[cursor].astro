@@ -1,15 +1,17 @@
 ---
 import List from '../../components/list.astro'
+import { getSelectedChannel, withChannel } from '../../lib/channels'
 import { InvalidTimelineCursorError, getTimelinePage } from '../../lib/telegram'
 import type { SeoMeta } from '../../types'
 
 let channel
+const timelineHome = withChannel('/', getSelectedChannel(Astro))
 
 try {
   ;({ channel } = await getTimelinePage(Astro, Astro.params.cursor))
 } catch (error) {
   if (error instanceof InvalidTimelineCursorError) {
-    return Astro.redirect('/')
+    return Astro.redirect(timelineHome)
   }
   throw error
 }

@@ -2,15 +2,16 @@
 import Layout from '../layouts/base.astro'
 import Header from '../components/header.astro'
 import TagCloudSection from '../components/TagCloudSection.astro'
-import { getChannelInfo } from '../lib/telegram'
+import { getChannelSummary } from '../lib/telegram'
+import { getSelectedChannel, withChannel } from '../lib/channels'
 import { getEnv, parseDelimitedItems } from '../lib/env'
 
-const channel = await getChannelInfo(Astro)
+const channel = await getChannelSummary(Astro)
 const pageSeo = { title: 'Links' }
 const links = parseDelimitedItems(getEnv(import.meta.env, Astro, 'LINKS'))
 
 if (!links.length) {
-  return Astro.redirect('/')
+  return Astro.redirect(withChannel(Astro.locals.SITE_URL, getSelectedChannel(Astro)))
 }
 
 const items = links.map((link) => ({

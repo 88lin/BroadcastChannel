@@ -1,4 +1,5 @@
 import { defineMiddleware } from 'astro:middleware'
+import { getSelectedChannel, InvalidChannelError, withChannel } from './lib/channels'
 
 function getEncodedTagSearchQuery(pathname: string): string {
   if (!pathname.startsWith('/search/%23')) {
@@ -22,9 +23,21 @@ export function shouldApplyDefaultCache(response: Response): boolean {
 }
 
 export const onRequest = defineMiddleware(async (context, next) => {
+  let selectedChannel = ''
+  try {
+    selectedChannel = getSelectedChannel(context)
+  }
+  catch (error) {
+    if (!(error instanceof InvalidChannelError))
+      throw error
+    return new Response('未找到该频道，请返回首页选择已配置的频道。', {
+      status: 404,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
+    })
+  }
   context.locals.SITE_URL = `${import.meta.env.SITE ?? ''}${import.meta.env.BASE_URL}`
-  context.locals.RSS_URL = `${context.locals.SITE_URL}rss.xml`
-  context.locals.RSS_PREFIX = ''
+  context.locals.RSS_URL = withChannel(`${context.locals.SITE_URL}rss.xml`, selectedChannel)
+  context.locals.RSS_PREFIX = selectedChannel ? `@${selectedChannel} | ` : ''
 
   const querySearch = context.url.searchParams.get('q') || ''
   const legacyTagSearch = getEncodedTagSearchQuery(context.url.pathname)
@@ -33,12 +46,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   if (context.url.pathname.startsWith('/search') && searchQuery.startsWith('#')) {
     const tag = searchQuery.replace('#', '')
-    context.locals.RSS_URL = `${context.locals.SITE_URL}rss.xml?tag=${encodeURIComponent(tag)}`
-    context.locals.RSS_PREFIX = `${tag} | `
+    context.locals.RSS_URL = withChannel(`${context.locals.SITE_URL}rss.xml?tag=${encodeURIComponent(tag)}`, selectedChannel)
+    context.locals.RSS_PREFIX = `${tag} | ${context.locals.RSS_PREFIX}`
   }
 
   const response = legacyTagSearch
-    ? await context.rewrite(`/search/result?q=${encodeURIComponent(legacyTagSearch)}`)
+    ? await context.rewrite(withChannel(`/search/result?q=${encodeURIComponent(legacyTagSearch)}`, selectedChannel))
     : await next()
 
   if (!response.bodyUsed) {

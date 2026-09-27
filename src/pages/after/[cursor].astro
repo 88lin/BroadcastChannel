@@ -1,19 +1,22 @@
 ---
 import List from '../../components/list.astro'
+import { getSelectedChannel, withChannel } from '../../lib/channels'
 import { InvalidTimelineCursorError, getTimelinePage, isRootTimelineCursor } from '../../lib/telegram'
 import type { SeoMeta } from '../../types'
 
+const selectedChannel = getSelectedChannel(Astro)
+const timelineHome = withChannel('/', selectedChannel)
 if (!Astro.params.cursor) {
-  return Astro.redirect('/')
+  return Astro.redirect(timelineHome)
 }
 
 try {
-  if (isRootTimelineCursor(Astro.params.cursor)) {
-    return Astro.redirect('/')
+  if (isRootTimelineCursor(Astro.params.cursor, selectedChannel)) {
+    return Astro.redirect(timelineHome)
   }
 } catch (error) {
   if (error instanceof InvalidTimelineCursorError) {
-    return Astro.redirect('/')
+    return Astro.redirect(timelineHome)
   }
   throw error
 }
@@ -24,7 +27,7 @@ try {
   ;({ channel } = await getTimelinePage(Astro, Astro.params.cursor))
 } catch (error) {
   if (error instanceof InvalidTimelineCursorError) {
-    return Astro.redirect('/')
+    return Astro.redirect(timelineHome)
   }
   throw error
 }

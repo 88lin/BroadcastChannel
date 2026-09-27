@@ -15,6 +15,21 @@
 
 内置静态代理仅访问白名单域名，重定向的每一跳都重新校验。图片、音频和视频保持媒体响应，其他内容（包括 HTML 和 SVG）作为隔离下载返回。
 
+### 多频道浏览
+
+配置多个 `CHANNEL` 后，首页提供“全部频道”和单频道切换，内容旁显示来源频道。默认仍按时间混合展示；点击频道后从该频道第一页开始，搜索、标签、前后翻页和 RSS 都保留所选频道。频道名称显示为 Telegram 用户名，不需要 Bot、频道管理权限或数据库。
+
+- 单频道首页：`/?channel=channel2`
+- 单频道搜索：`/search/result?channel=channel2&q=关键词`
+- 单频道订阅：`/rss.xml?channel=channel2` 或 `/rss.json?channel=channel2`
+- 标签与频道组合订阅：`/rss.xml?channel=channel2&tag=标签`
+
+只能选择 `CHANNEL` 中已配置的频道，不支持通过 URL 抓取任意频道。选择频道不会改变文章 ID：主频道继续使用 `/posts/123`，其他频道使用 `/posts/channel2-123`。旧混合时间线、订阅和站点地图继续可用。配置 `GOOGLE_SEARCH_SITE` 时，“全部频道”仍使用 Google 搜索，选择频道后使用站内搜索以确保频道范围准确。
+
+### 自动检查
+
+`main`、`hub` 和 `Notes` 分支的推送及 Pull Request 会运行依赖锁定安装、lint、类型检查、测试和构建。这是独立的检查工作流；托管平台自动部署和 Docker 发布仍按各自的配置执行。
+
 ## 🪧 演示
 
 ### 真实用户

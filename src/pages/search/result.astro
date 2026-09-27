@@ -1,11 +1,13 @@
 ---
 import List from '../../components/list.astro'
+import { getSelectedChannel } from '../../lib/channels'
 import { getChannelInfo } from '../../lib/telegram'
 import type { SeoMeta } from '../../types'
 
 const q = Astro.url.searchParams.get('q') || ''
 const channel = await getChannelInfo(Astro, {
   q,
+  channel: getSelectedChannel(Astro),
 })
 const pageSeo: SeoMeta = {
   title: q,

@@ -1,5 +1,6 @@
 ---
 import { getBooleanEnv, getStringEnv, parseCsvList } from '../lib/env'
+import { getPostChannel, getSelectedChannel, withChannel } from '../lib/channels'
 import { formatPostTime, getReactionLabel, getTagHref } from '../lib/post-ui'
 import { sanitizeContentHtml } from '../lib/sanitize'
 
@@ -11,6 +12,8 @@ const { post, isItem } = Astro.props
 
 const channels = parseCsvList(getStringEnv(import.meta.env, Astro, 'CHANNEL'))
 const isMultiChannel = channels.length > 1
+const selectedChannel = getSelectedChannel(Astro)
+const sourceChannel = getPostChannel(post.id, channels)
 const commentsEnabled = getBooleanEnv(import.meta.env, Astro, 'COMMENTS')
 const reactionsEnabled = getBooleanEnv(import.meta.env, Astro, 'REACTIONS')
 
@@ -24,7 +27,7 @@ if (isMultiChannel && post.id.includes('-')) {
 }
 
 const timeago = formatPostTime(post.datetime, timezone, locale)
-const contentHtml = sanitizeContentHtml(post.content)
+const contentHtml = sanitizeContentHtml(post.content, selectedChannel)
 const hasContent = contentHtml.length > 0
 const hasReactions = Boolean(reactionsEnabled && post.reactions?.length > 0)
 const hasTags = post.tags.length > 0
@@ -77,10 +80,22 @@ const commentsFrameScript = `<script>
   <header class={timeBoxClass}>
     <span class={timeDotClass} aria-hidden="true"></span>
     <p class={timeTextClass}>
-      <a href={`${SITE_URL}posts/${post.id}`} title={post.datetime} class={itemLinkClass}>
+      <a href={withChannel(`${SITE_URL}posts/${post.id}`, selectedChannel)} title={post.datetime} class={itemLinkClass}>
         <time datetime={post.datetime} title={timeago}>{timeago}</time>
       </a>
     </p>
+    {
+      isMultiChannel && (
+        <a
+          href={withChannel(SITE_URL, sourceChannel)}
+          class="post-channel"
+          title={`查看 @${sourceChannel} 的内容`}
+          aria-label={`来源频道 @${sourceChannel}`}
+        >
+          @{sourceChannel}
+        </a>
+      )
+    }
   </header>
   {hasContent && <div class:list={[contentClass, 'content']} set:html={contentHtml} />}
   {
@@ -120,7 +135,7 @@ const commentsFrameScript = `<script>
       <footer class:list={[tagBoxClass, tagPaddingClass, !hasContent && tagStandaloneClass]}>
         <span class="tag-icon" aria-hidden="true" />
         {post.tags.map((tag: string) => (
-          <a href={getTagHref(tag)} title={tag} class={tagLinkClass}>
+          <a href={withChannel(getTagHref(tag), selectedChannel)} title={tag} class={tagLinkClass}>
             {tag}
           </a>
         ))}

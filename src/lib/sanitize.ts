@@ -1,4 +1,5 @@
 import sanitizeHtml from 'sanitize-html'
+import { withChannel } from './channels'
 
 const mediaTags = ['img', 'video', 'audio', 'source']
 const interactiveTags = ['button', 'input', 'label']
@@ -54,13 +55,27 @@ const contentSanitizeOptions = {
   },
 }
 
-export function sanitizeContentHtml(content: string): string {
-  return sanitizeHtml(content, contentSanitizeOptions)
+function getContentSanitizeOptions(channel: string) {
+  return {
+    ...contentSanitizeOptions,
+    transformTags: {
+      a: (tagName: string, attribs: Record<string, string>) => ({
+        tagName,
+        attribs: channel && attribs.href?.startsWith('/search/result?')
+          ? { ...attribs, href: withChannel(attribs.href, channel) }
+          : attribs,
+      }),
+    },
+  }
 }
 
-export function sanitizeFeedHtml(content: string): string {
+export function sanitizeContentHtml(content: string, channel = ''): string {
+  return sanitizeHtml(content, getContentSanitizeOptions(channel))
+}
+
+export function sanitizeFeedHtml(content: string, channel = ''): string {
   return sanitizeHtml(content, {
-    ...contentSanitizeOptions,
+    ...getContentSanitizeOptions(channel),
     exclusiveFilter(frame) {
       return frame.tag === 'img' && frame.attribs.class?.includes('modal-img')
     },

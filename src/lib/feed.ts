@@ -1,5 +1,6 @@
 import type { APIContext } from 'astro'
 import type { ChannelInfo, Post } from '../types'
+import { getSelectedChannel, withChannel } from './channels'
 import { sanitizeFeedHtml } from './sanitize'
 import { getChannelInfo } from './telegram'
 
@@ -9,6 +10,7 @@ export interface FeedData {
   siteUrl: URL
   tag: string | null
   title: string
+  channelFilter?: string
 }
 
 export interface JsonFeedData {
@@ -28,7 +30,7 @@ export interface JsonFeedData {
   }[]
 }
 
-export function buildJsonFeed({ channel, posts, siteUrl, title, tag }: FeedData): JsonFeedData {
+export function buildJsonFeed({ channel, posts, siteUrl, title, tag, channelFilter = '' }: FeedData): JsonFeedData {
   const feedUrl = new URL('rss.json', siteUrl)
   if (tag) {
     feedUrl.searchParams.set('tag', tag)
@@ -37,8 +39,8 @@ export function buildJsonFeed({ channel, posts, siteUrl, title, tag }: FeedData)
     version: 'https://jsonfeed.org/version/1.1',
     title,
     description: channel.description,
-    home_page_url: siteUrl.toString(),
-    feed_url: feedUrl.toString(),
+    home_page_url: withChannel(siteUrl.toString(), channelFilter),
+    feed_url: withChannel(feedUrl.toString(), channelFilter),
     items: posts.map((item) => {
       const itemUrl = new URL(`posts/${item.id}`, siteUrl).toString()
 
@@ -49,7 +51,7 @@ export function buildJsonFeed({ channel, posts, siteUrl, title, tag }: FeedData)
         summary: item.description,
         date_published: new Date(item.datetime).toISOString(),
         tags: item.tags,
-        content_html: sanitizeFeedHtml(item.content),
+        content_html: sanitizeFeedHtml(item.content, channelFilter),
       }
     }),
   }
@@ -57,8 +59,10 @@ export function buildJsonFeed({ channel, posts, siteUrl, title, tag }: FeedData)
 
 export async function getFeedData(context: APIContext): Promise<FeedData> {
   const tag = context.url.searchParams.get('tag')
+  const channelFilter = getSelectedChannel(context)
   const channel = await getChannelInfo(context, {
     q: tag ? `#${tag}` : '',
+    channel: channelFilter,
   })
   const siteUrl = new URL(context.locals.SITE_URL, context.url.origin)
   siteUrl.search = ''
@@ -68,6 +72,7 @@ export async function getFeedData(context: APIContext): Promise<FeedData> {
     posts: channel.posts ?? [],
     siteUrl,
     tag,
-    title: `${tag ? `${tag} | ` : ''}${channel.title}`,
+    channelFilter,
+    title: `${tag ? `${tag} | ` : ''}${channelFilter ? `@${channelFilter} | ` : ''}${channel.title}`,
   }
 }

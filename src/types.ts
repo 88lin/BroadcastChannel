@@ -49,6 +49,8 @@ export interface GetChannelInfoParams {
   before?: string
   after?: string
   q?: string
+  /** Explicit selection for feeds/search; sitemap callers retain all sources. */
+  channel?: string
 }
 
 export interface TimelinePage {
