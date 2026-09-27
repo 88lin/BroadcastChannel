@@ -1,6 +1,67 @@
 @import 'tailwindcss';
 @import './content.css';
 
+.channel-browser {
+  min-width: 0;
+  margin-top: 1.25rem;
+}
+
+.channel-navigation {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 0.25rem 0.125rem 0.625rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+
+.channel-navigation a:link,
+.channel-navigation a:visited {
+  display: block;
+  flex: 0 0 auto;
+  max-width: min(20rem, 75vw);
+  overflow: hidden;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--color-line);
+  border-radius: 9999px;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-navigation a:hover,
+.channel-navigation a[aria-current='page'] {
+  border-color: var(--color-link-hover);
+  background: var(--color-accent-soft);
+  color: var(--color-link-hover);
+  text-decoration: none;
+}
+
+.channel-navigation a[aria-current='page'] {
+  font-weight: 600;
+}
+
+.channel-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  justify-content: space-between;
+  padding: 0.375rem 0.25rem 0;
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.channel-context a:link,
+.channel-context a:visited {
+  color: var(--color-link-hover);
+}
+
 @view-transition {
   navigation: auto;
 }
