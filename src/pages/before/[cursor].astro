@@ -1,14 +1,17 @@
 ---
 import List from '../../components/list.astro'
-import { getTimelinePage } from '../../lib/telegram'
+import { InvalidTimelineCursorError, getTimelinePage } from '../../lib/telegram'
 import type { SeoMeta } from '../../types'
 
 let channel
 
 try {
   ;({ channel } = await getTimelinePage(Astro, Astro.params.cursor))
-} catch {
-  return Astro.redirect('/')
+} catch (error) {
+  if (error instanceof InvalidTimelineCursorError) {
+    return Astro.redirect('/')
+  }
+  throw error
 }
 
 const pageSeo: SeoMeta = {

@@ -18,7 +18,7 @@
     "postinstall": "node -e \"const fs=require('node:fs');const cp=require('node:child_process');if(fs.existsSync('.git'))cp.execFileSync(process.execPath,['node_modules/simple-git-hooks/cli.js'],{stdio:'inherit'})\""
   },
   "dependencies": {
-    "@astrojs/rss": "^4.0.18",
+    "@astrojs/rss": "^4.0.19",
     "@iconify-json/ri": "^1.2.10",
     "astro-icon": "^1.1.5",
     "cheerio": "1.0.0-rc.12",
@@ -28,7 +28,7 @@
     "ofetch": "^1.5.1",
     "prismjs": "^1.30.0",
     "prismjs-components-importer": "^0.2.0",
-    "sanitize-html": "2.17.5"
+    "sanitize-html": "2.17.7"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.0.0",

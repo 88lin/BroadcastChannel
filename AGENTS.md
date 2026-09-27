@@ -8,10 +8,10 @@
 
 ## Stack and commands
 
-- Runtime/tooling: Node `v22`, `pnpm@11.5.3`, Astro `^6.4.6` SSR, Tailwind CSS v4 via `@tailwindcss/vite`, ESLint `^10.4.1` with Antfu + Astro + formatter rules.
+- Runtime/tooling: Node `v22`, `pnpm@11.5.3`, Astro `^5.18.2` SSR, Tailwind CSS v4 via `@tailwindcss/vite`, ESLint `^10.4.1` with Antfu + Astro + formatter rules.
 - Install/dev/build: `pnpm install`, `pnpm dev` or `pnpm start` (`astro dev`), `pnpm build`, `pnpm preview`.
 - Lint/typecheck/test: `pnpm lint`, `pnpm typecheck`, and `pnpm test` for repo gates; `pnpm lint:fix` for auto-fix; `pnpm eslint <path>` for focused lint checks.
-- There is no established single-test command; keep new unit coverage focused and use Vitest's normal filters only when needed.
+- Focused tests: `pnpm test -- <path>` or `pnpm test -- -t <name>`; keep new unit coverage focused.
 - `postinstall` installs `simple-git-hooks` when `.git` exists; pre-commit runs `lint-staged` with `eslint --fix`.
 - CI does not validate app behavior: `docker.yml` only builds/pushes the GHCR image, and `sync.yml` only syncs forks from upstream.
 
@@ -25,13 +25,14 @@
 
 ## Architecture notes
 
-- `src/pages/` contains Astro pages and API-style routes; `src/pages/index.astro` is intentionally thin and calls `getChannelInfo(Astro)`.
-- `src/layouts/base.astro` wires global CSS, `astro-seo`, nav/sidebar, RSS links, `HEADER_INJECT`, and `FOOTER_INJECT`.
-- `src/middleware.ts` sets `SITE_URL`/`RSS_URL` locals, handles legacy `#tag` search rewrites, and adds speculation/cache headers.
-- Telegram fetching/parsing belongs in `src/lib/telegram/**`; request caching uses `ocache` with 5 min max age, SWR enabled, and 1 hour stale max age.
-- Shared env helpers are in `src/lib/env.ts`; they read `import.meta.env` first and fall back to `Astro.locals.runtime.env` for runtime bindings.
+- `src/pages/` contains Astro pages and API-style routes; `src/pages/index.astro` is intentionally thin and calls `getTimelinePage(Astro)`.
+- `src/layouts/base.astro` wires global CSS, `astro-seo`, top navigation, RSS links, `HEADER_INJECT`, and `FOOTER_INJECT`.
+- `src/middleware.ts` sets `SITE_URL`/`RSS_URL` locals, handles legacy `#tag` search rewrites, and adds speculation/cache headers and `X-Content-Type-Options: nosniff`.
+- Telegram fetching/parsing belongs in `src/lib/telegram/**`; HTML requests use `ocache` with 5 min max age and SWR disabled. Parsed data uses an LRU with 5 min fresh TTL and a separate 24 hour stale-on-error cache.
+- Shared env helpers are in `src/lib/env.ts`; runtime bindings in `Astro.locals.runtime.env` take precedence, then process env, then build-time `import.meta.env`.
 - Static proxy logic is shared in `src/lib/static-proxy.ts`; both Astro route `src/pages/static/[...url].ts` and Vercel Edge Function `api/static/index.ts` use it, with `/static/:path*` rewritten by `vercel.json`.
 - Do not broaden the static proxy target whitelist unless the task explicitly changes the security model.
+- Timeline navigation uses `ChannelInfo.timeline` and versioned base64url cursors from `timeline-cursor.ts`; sitemap cursors remain separate. New cursors are capped at 2048 characters and retain at most 8 previous pages, then link home.
 - Keep shared domain interfaces in `src/types.ts`; there are no TS path aliases, so use relative imports.
 
 ## Env and deployment gotchas
@@ -39,14 +40,14 @@
 - `CHANNEL` is required server-side; missing it throws during Telegram fetch.
 - `TELEGRAM_HOST` defaults in code to `telegram.me`; `.env.example` uses `telegram.dog` as an override example.
 - `STATIC_PROXY` defaults to `/static/` only when unset; set it to an empty string for direct Telegram asset URLs.
-- `PODCAST` configures the optional podcast link.
+- `PODCAST` configures the optional podcast link; `PODCASRT` is a legacy fallback.
 - `astro.config.mjs` selects adapters for Vercel, Cloudflare Pages, Netlify, Node standalone, and EdgeOne; `SERVER_ADAPTER` can override detection.
 - EdgeOne detection depends on `HOME=/dev/shm/home` and `TMPDIR=/dev/shm/tmp`; `DOCKER=true` changes Vite SSR `noExternal` behavior.
 - If env behavior changes, update `.env.example` and README docs together.
 
 ## Code and content conventions
 
-- Server-rendered HTML is the default; keep browser JS near zero. Telegram comments are the deliberate exception.
+- Server-rendered HTML is the default; keep browser JS small. Existing exceptions include Telegram comments, read-state tracking, and back-to-top interaction.
 - API-style routes must return `Response`/`Response.json`, not Express-like objects.
 - Follow ESLint formatting: 2 spaces, LF, UTF-8, single quotes, usually no semicolons; let `pnpm lint:fix` settle import order.
 - Preserve local naming: Astro route filenames follow routing syntax, newer reusable components use `PascalCase.astro`, older `header.astro`/`item.astro` stay lowercase.

@@ -114,8 +114,10 @@ export async function extractPost($: CheerioAPI, item: AnyNode | null, options: 
   )
   const contentText = content.text()
   const title = contentText.match(TITLE_PREVIEW_REGEX)?.[0] ?? contentText
-  const rawId = message.attr('data-post')?.replace(new RegExp(`${channel}/`, 'i'), '') ?? ''
-  const id = isMultiChannel && !isPrimaryChannel ? `${channel}-${rawId}` : rawId
+  const dataPost = message.attr('data-post') ?? ''
+  const prefix = `${channel}/`
+  const rawId = dataPost.toLowerCase().startsWith(prefix.toLowerCase()) ? dataPost.slice(prefix.length) : ''
+  const id = rawId && isMultiChannel && !isPrimaryChannel ? `${channel}-${rawId}` : rawId
   const tags = collectTags($, content)
   const contentHtml = renderPostContent($, message, content, {
     channel,

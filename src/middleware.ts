@@ -42,6 +42,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     : await next()
 
   if (!response.bodyUsed) {
+    response.headers.set('X-Content-Type-Options', 'nosniff')
     if (isHtmlResponse(response)) {
       response.headers.set('Speculation-Rules', '"/rules/prefetch.json"')
     }

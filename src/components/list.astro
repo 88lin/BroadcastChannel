@@ -7,8 +7,8 @@ const { SITE_URL } = Astro.locals
 const { channel, before = true, after = true, isItem = false, pageHeading, pageSeo } = Astro.props
 const posts = channel.posts ?? []
 
-const beforeCursor = channel.beforeCursor
-const afterCursor = channel.afterCursor
+const beforeCursor = channel.timeline?.beforeCursor
+const afterCursor = channel.timeline?.afterCursor
 const itemsClass = 'mt-6 mb-0 grid list-none gap-6 pl-0 [&>li]:min-w-0'
 const paginationClass = 'my-5 flex items-center'
 const paginationInfoClass = 'flex-1 text-center align-middle text-[12px] font-medium text-muted'

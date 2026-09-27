@@ -29,8 +29,11 @@ export interface ChannelInfo {
   avatarNeedsProxy?: boolean
   /** Optional SEO override injected by page routes */
   seo?: SeoMeta
-  beforeCursor?: string
-  afterCursor?: string
+  /** Timeline navigation only; sitemap cursors use a separate format. */
+  timeline?: {
+    beforeCursor?: string
+    afterCursor?: string
+  }
   sitemapAfterCursor?: string
 }
 

@@ -5,13 +5,11 @@ import { siteTitleClass } from '../../lib/style-classes'
 import { getChannelPost, getChannelSummary } from '../../lib/telegram'
 
 const { SITE_URL } = Astro.locals
-const channelInfo = await getChannelSummary(Astro)
-
 if (!Astro.params.id) {
   return Astro.redirect('/')
 }
 
-const post = await getChannelPost(Astro, Astro.params.id)
+const [channelInfo, post] = await Promise.all([getChannelSummary(Astro), getChannelPost(Astro, Astro.params.id)])
 const channel = {
   ...(channelInfo || {}),
   posts: post ? [post] : [],

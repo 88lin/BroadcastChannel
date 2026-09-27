@@ -1,6 +1,6 @@
 ---
 import List from '../../components/list.astro'
-import { getTimelinePage, isRootTimelineCursor } from '../../lib/telegram'
+import { InvalidTimelineCursorError, getTimelinePage, isRootTimelineCursor } from '../../lib/telegram'
 import type { SeoMeta } from '../../types'
 
 if (!Astro.params.cursor) {
@@ -11,16 +11,22 @@ try {
   if (isRootTimelineCursor(Astro.params.cursor)) {
     return Astro.redirect('/')
   }
-} catch {
-  return Astro.redirect('/')
+} catch (error) {
+  if (error instanceof InvalidTimelineCursorError) {
+    return Astro.redirect('/')
+  }
+  throw error
 }
 
 let channel
 
 try {
   ;({ channel } = await getTimelinePage(Astro, Astro.params.cursor))
-} catch {
-  return Astro.redirect('/')
+} catch (error) {
+  if (error instanceof InvalidTimelineCursorError) {
+    return Astro.redirect('/')
+  }
+  throw error
 }
 
 const pageSeo: SeoMeta = {

@@ -1,7 +1,5 @@
 import type { Reaction } from '../types'
 
-export const paidReactionClass = 'border-paid-line bg-paid-surface text-paid'
-
 const weekInMs = 7 * 24 * 60 * 60 * 1000
 
 function resolveLocale(locale = 'en'): string {
