@@ -36,5 +36,9 @@ export function withChannel(path: string, channel: string): string {
 }
 
 export function getPostChannel(id: string, channels: string[]): string {
-  return channels.find(channel => id.startsWith(`${channel}-`)) ?? channels[0] ?? ''
+  return [...channels]
+    .sort((a, b) => b.length - a.length)
+    .find(channel => id.startsWith(`${channel}-`) && /^\d+$/.test(id.slice(channel.length + 1)))
+    ?? channels[0]
+    ?? ''
 }
