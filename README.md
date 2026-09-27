@@ -8,8 +8,12 @@
 
 - **将 Telegram Channel 转为微博客**
 - **SEO 友好** `/sitemap.xml`
-- **浏览器端 0 JS**
+- **服务端渲染，少量浏览器脚本支持已读状态、返回顶部和可选评论**
 - **提供 RSS 和 RSS JSON** `/rss.xml` `/rss.json`
+
+时间线按发布时间合并多个频道，每页最多 24 条。分页链接最多保留最近 8 页的回退状态，并将游标限制在 2048 个字符内；频道较多时会进一步缩短回退窗口，窗口末端可返回首页。RSS 和站点地图使用独立的查询与游标。
+
+内置静态代理仅访问白名单域名，重定向的每一跳都重新校验。图片、音频和视频保持媒体响应，其他内容（包括 HTML 和 SVG）作为隔离下载返回。
 
 ## 🪧 演示
 
@@ -166,6 +170,18 @@ FILTER_FILES=true
 ## 过滤包含特定关键词的帖子，使用英文逗号分割
 AD_KEYWORDS=广告,推广,赞助
 ```
+
+## 站点地址与 SEO
+
+部署时请在 `astro.config.mjs` 中设置 `site: 'https://你的正式域名'`，或在构建命令中传入站点地址：
+
+```sh
+pnpm build --site https://example.com
+```
+
+该地址用于 canonical、Open Graph、RSS 和站点地图中的绝对链接。当前 Node 适配器会校验请求主机；未配置站点地址时，Node 部署或本地 preview 中的绝对链接可能回落到 `http://localhost`。`SITE_NAME` 只设置显示名称，不能代替 `site`。修改站点地址后需要重新构建。
+
+`SERVER_ADAPTER` 可覆盖构建平台检测，支持 `node`、`vercel`、`cloudflare_pages`、`netlify`、`edgeone`。容器构建可设置 `DOCKER=true` 来启用 SSR 依赖打包；其他场景请保持未设置，当前实现中字符串 `false` 也会启用该选项。这两项由 Astro 配置直接读取构建进程的环境变量，请在托管平台或 shell 中设置，仅写入 `.env` 不会自动生效。站点地址仍需使用上面的 `site` 配置或 `--site` 参数，项目没有把 `.env` 中的 `SITE` / `SITE_URL` 映射到该配置。
 
 ## 品牌自定义
 

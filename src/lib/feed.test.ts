@@ -3,6 +3,19 @@ import { describe, expect, it } from 'vitest'
 import { buildJsonFeed } from './feed'
 
 describe('json feed builder', () => {
+  it('retains the selected tag in the subscription URL', () => {
+    const feed = buildJsonFeed({
+      channel: { posts: [], title: 'Channel', description: '', descriptionHTML: null, avatar: undefined },
+      posts: [],
+      siteUrl: new URL('https://example.com/blog/'),
+      tag: 'C++ & 中文',
+      title: 'Filtered feed',
+    })
+    const url = new URL(feed.feed_url)
+    expect(url.pathname).toBe('/blog/rss.json')
+    expect(url.searchParams.get('tag')).toBe('C++ & 中文')
+  })
+
   it('emits JSON Feed 1.1 metadata and valid item fields', () => {
     const channel: ChannelInfo = {
       posts: [],

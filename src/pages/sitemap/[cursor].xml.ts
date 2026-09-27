@@ -8,23 +8,19 @@ export const GET: APIRoute = async (Astro) => {
   const cursorParam = Astro.params.cursor || ''
   const channels = parseCsvList(getEnv(import.meta.env, Astro, 'CHANNEL'))
   const isMultiChannel = channels.length > 1
-  let fetchBefore = cursorParam
-  let sitemapChannel = ''
-
-  if (isMultiChannel && cursorParam.includes('-')) {
-    const lastDashIndex = cursorParam.lastIndexOf('-')
-    if (lastDashIndex !== -1) {
-      sitemapChannel = cursorParam.substring(0, lastDashIndex)
-      const countValue = cursorParam.substring(lastDashIndex + 1)
-      const channelIndex = channels.indexOf(sitemapChannel)
-
-      if (channelIndex !== -1) {
-        const cursors = Array.from({ length: channels.length }).fill('0') as string[]
-        cursors[channelIndex] = countValue
-        fetchBefore = cursors.join('-')
-      }
-    }
+  const separator = isMultiChannel ? cursorParam.lastIndexOf('-') : -1
+  const sitemapChannel = isMultiChannel ? cursorParam.slice(0, separator) : channels[0]
+  const countValue = cursorParam.slice(separator + 1)
+  const count = Number(countValue)
+  const channelIndex = channels.indexOf(sitemapChannel)
+  if (channelIndex === -1 || !/^\d+$/.test(countValue) || count <= 0 || !Number.isSafeInteger(count + 1)) {
+    return new Response('Invalid sitemap cursor', { status: 404 })
   }
+
+  // Sitemap URLs name the inclusive upper ID; Telegram's before boundary is exclusive.
+  const cursors = Array.from({ length: channels.length }).fill('0')
+  cursors[channelIndex] = String(count + 1)
+  const fetchBefore = cursors.join('-')
 
   const channel = await getChannelInfo(Astro, {
     before: fetchBefore,

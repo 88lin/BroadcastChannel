@@ -4,9 +4,22 @@ vi.mock('astro:middleware', () => ({
   defineMiddleware: <T>(handler: T): T => handler,
 }))
 
-const { isHtmlResponse, shouldApplyDefaultCache } = await import('./middleware')
+const { isHtmlResponse, onRequest, shouldApplyDefaultCache } = await import('./middleware')
 
 describe('middleware response header helpers', () => {
+  it('adds nosniff without replacing proxy isolation or error cache policy', async () => {
+    const upstream = new Response('Failed', {
+      status: 502,
+      headers: { 'Cache-Control': 'no-store', 'Content-Security-Policy': 'default-src \'none\'; sandbox' },
+    })
+    const context = { locals: {}, url: new URL('https://site.example/static/asset'), params: {} } as Parameters<typeof onRequest>[0]
+    const response = await onRequest(context, async () => upstream) as Response
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(response.headers.get('content-security-policy')).toContain('sandbox')
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(response.headers.has('speculation-rules')).toBe(false)
+  })
+
   it('applies default cache to successful responses without cache headers', () => {
     expect(shouldApplyDefaultCache(new Response('', { status: 200 }))).toBe(true)
   })

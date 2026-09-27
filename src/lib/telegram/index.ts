@@ -1,11 +1,15 @@
 import type { ChannelInfo, GetChannelInfoParams, Post, TimelinePage } from '../../types'
+import type { TimelineCursorPayload, TimelineSourceCursor } from './timeline-cursor'
 import type { RequestContext } from './types'
 import { LRUCache } from 'lru-cache'
 import { getBooleanEnv, getEnv, parseCsvList } from '../env'
 import { modifyHTMLContent } from './content'
 import { extractPost } from './parse'
 import { loadChannelDocument } from './request'
+import { decodeTimelineCursor, encodeTimelineCursor, InvalidTimelineCursorError } from './timeline-cursor'
 import { normalizeUrlAttribute } from './url'
+
+export { InvalidTimelineCursorError, isRootTimelineCursor } from './timeline-cursor'
 
 type CacheValue = ChannelInfo | Post
 
@@ -13,25 +17,6 @@ interface PostFilterConfig {
   filterImages: boolean
   filterFiles: boolean
   adRegex: RegExp | null
-}
-
-interface TimelineCursorPayload {
-  v: 2
-  sources?: TimelineSourceCursor[]
-  history?: TimelineSourceCursor[][]
-}
-
-type CompactTimelineSourceCursor = [string, number]
-
-interface CompactTimelineCursorPayload {
-  v: 2
-  s?: CompactTimelineSourceCursor[]
-  h?: CompactTimelineSourceCursor[][]
-}
-
-interface TimelineSourceCursor {
-  before: string
-  offset: number
 }
 
 interface TimelineSourcePage {
@@ -49,23 +34,17 @@ interface TimelineMergeState {
 const FRESH_CACHE_TTL = 1000 * 60 * 5
 const STALE_CACHE_TTL = 1000 * 60 * 60 * 24
 const TIMELINE_PAGE_SIZE = 24
-const PERCENT_ESCAPE_REGEX = /%([0-9A-F]{2})/g
-const BASE64_PLUS_REGEX = /\+/g
-const BASE64_SLASH_REGEX = /\//g
-const BASE64_PADDING_REGEX = /=+$/g
-const BASE64URL_DASH_REGEX = /-/g
-const BASE64URL_UNDERSCORE_REGEX = /_/g
+const cacheSizeEncoder = new TextEncoder()
 
+// The budgets measure serialized UTF-8 bytes, not the total JavaScript heap footprint.
 const cache = new LRUCache<string, CacheValue>({
   ttl: FRESH_CACHE_TTL,
   maxSize: 50 * 1024 * 1024,
-  sizeCalculation: item => JSON.stringify(item).length,
 })
 
 const staleCache = new LRUCache<string, CacheValue>({
   ttl: STALE_CACHE_TTL,
   maxSize: 50 * 1024 * 1024,
-  sizeCalculation: item => JSON.stringify(item).length,
 })
 
 const inFlightRequests = new Map<string, Promise<CacheValue | null>>()
@@ -79,8 +58,9 @@ function isChannelInfo(value: CacheValue): value is ChannelInfo {
 }
 
 function setCacheValue(key: string, value: CacheValue): void {
-  cache.set(key, value)
-  staleCache.set(key, value)
+  const size = cacheSizeEncoder.encode(JSON.stringify(value)).byteLength
+  cache.set(key, value, { size })
+  staleCache.set(key, value, { size })
 }
 
 async function loadCachedValue<T extends CacheValue | null>(
@@ -339,93 +319,6 @@ function getDefaultTimelineSources(channels: string[]): TimelineSourceCursor[] {
   }))
 }
 
-function toCompactTimelineSourceCursor(source: TimelineSourceCursor): CompactTimelineSourceCursor {
-  return [source.before, source.offset]
-}
-
-function fromCompactTimelineSourceCursor(source: CompactTimelineSourceCursor): TimelineSourceCursor {
-  return {
-    before: source[0],
-    offset: source[1],
-  }
-}
-
-function toBase64Url(value: string): string {
-  const encoded = encodeURIComponent(value).replace(PERCENT_ESCAPE_REGEX, (_match, code: string) => String.fromCharCode(Number.parseInt(code, 16)))
-  return btoa(encoded)
-    .replace(BASE64_PLUS_REGEX, '-')
-    .replace(BASE64_SLASH_REGEX, '_')
-    .replace(BASE64_PADDING_REGEX, '')
-}
-
-function fromBase64Url(value: string): string {
-  const normalized = value
-    .replace(BASE64URL_DASH_REGEX, '+')
-    .replace(BASE64URL_UNDERSCORE_REGEX, '/')
-    .padEnd(Math.ceil(value.length / 4) * 4, '=')
-
-  const decoded = atob(normalized)
-  const bytes = decoded.split('').map(char => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`).join('')
-  return decodeURIComponent(bytes)
-}
-
-function encodeTimelineCursor(payload: TimelineCursorPayload): string {
-  const compactPayload: CompactTimelineCursorPayload = {
-    v: 2,
-    s: payload.sources?.map(toCompactTimelineSourceCursor),
-    h: payload.history?.map(entry => entry.map(toCompactTimelineSourceCursor)),
-  }
-
-  return toBase64Url(JSON.stringify(compactPayload))
-}
-
-function decodeTimelineCursor(cursor: string): TimelineCursorPayload {
-  try {
-    const payload = JSON.parse(fromBase64Url(cursor)) as CompactTimelineCursorPayload
-    if (payload?.v !== 2) {
-      throw new Error('Unsupported timeline cursor version')
-    }
-
-    if (!Array.isArray(payload.s)) {
-      throw new TypeError('Invalid timeline sources payload')
-    }
-
-    if (!Array.isArray(payload.h)) {
-      throw new TypeError('Invalid timeline history payload')
-    }
-
-    const isValidSourceCursor = (source: CompactTimelineSourceCursor | undefined): source is CompactTimelineSourceCursor => {
-      return Array.isArray(source)
-        && source.length === 2
-        && typeof source[0] === 'string'
-        && Number.isInteger(source[1])
-        && source[1] >= 0
-    }
-
-    if (payload.s.some(source => !isValidSourceCursor(source))) {
-      throw new Error('Invalid timeline source shape')
-    }
-
-    if (payload.h.some(entry => !Array.isArray(entry) || entry.some(source => !isValidSourceCursor(source)))) {
-      throw new Error('Invalid timeline history entry')
-    }
-
-    return {
-      v: 2,
-      sources: payload.s.map(fromCompactTimelineSourceCursor),
-      history: payload.h.map(entry => entry.map(fromCompactTimelineSourceCursor)),
-    }
-  }
-  catch (error) {
-    throw new Error(`Invalid timeline cursor: ${error instanceof Error ? error.message : 'Unknown error'}`)
-  }
-}
-
-export function isRootTimelineCursor(cursor: string): boolean {
-  const payload = decodeTimelineCursor(cursor)
-  return (payload.history ?? []).length === 0
-}
-
 async function getTimelineSourcePage(
   context: RequestContext,
   channelName: string,
@@ -474,14 +367,20 @@ async function getTimelineSourcePage(
       })),
     )).reverse()
 
-    const visiblePosts = filterPosts(extractedPosts, filterConfig)
-    const nextBefore = extractedPosts.at(-1)?.id?.replace(`${channel}-`, '') || '0'
+    const visiblePosts = filterPosts(extractedPosts, filterConfig).sort((a, b) => compareTimelineEntries(a, b, channels))
+    const nextBefore = getPostRawId(extractedPosts.filter(post => post.id).at(-1)?.id ?? '', channels) || '0'
+    const newestId = getPostRawId(extractedPosts.find(post => post.id)?.id ?? '', channels)
+
+    if (currentBefore && newestId && Number(newestId) >= Number(currentBefore)) {
+      throw new Error('Telegram pagination did not advance')
+    }
 
     if (offsetToSkip < visiblePosts.length) {
+      // Pin the first batch so later arrivals cannot shift an offset-based cursor.
       return {
         posts: visiblePosts.slice(offsetToSkip),
         source: {
-          before: currentBefore,
+          before: currentBefore || String(Number(newestId) + 1),
           offset: offsetToSkip,
         },
         nextBefore,
@@ -522,21 +421,19 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
     const filterConfig = getPostFilterConfig(context)
     const payload: TimelineCursorPayload = cursor ? decodeTimelineCursor(cursor) : { v: 2 }
     if (cursor && (!payload.sources || payload.sources.length !== channels.length)) {
-      throw new Error('Invalid timeline cursor sources state')
+      throw new InvalidTimelineCursorError('Invalid timeline cursor sources state')
     }
 
     if (cursor && (!payload.history || payload.history.some(entry => entry.length !== channels.length))) {
-      throw new Error('Invalid timeline cursor history state')
+      throw new InvalidTimelineCursorError('Invalid timeline cursor history state')
     }
 
     const sources = payload.sources ?? getDefaultTimelineSources(channels)
     const history = payload.history ?? []
-    const primaryChannelInfo: Partial<ChannelInfo> = {
-      title: '',
-      description: '',
-      descriptionHTML: null,
-      avatar: undefined,
-    }
+    // Exhausted sources are not fetched again, but the site's identity still comes from the primary channel.
+    const primaryChannelInfo: Partial<ChannelInfo> = sources[0].before === '0'
+      ? await getChannelSummary(context)
+      : {}
     const states: TimelineMergeState[] = (await Promise.all(
       channels.map(async (channelName, channelIndex) => ({
         page: await getTimelineSourcePage(
@@ -604,6 +501,12 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
       const remainingVisible = state.page.posts.length - state.index
 
       if (remainingVisible > 0) {
+        const lastConsumed = state.page.posts[state.index - 1]
+        const before = lastConsumed && getPostRawId(lastConsumed.id, channels)
+        // ID boundaries survive deleted/filtered earlier messages. Retain offsets for non-monotonic source timestamps.
+        if (before && state.page.posts.slice(state.index).every(post => compareRawIdsDesc(getPostRawId(post.id, channels), before) > 0)) {
+          return { before, offset: 0 }
+        }
         return {
           before: state.page.source.before,
           offset: state.page.source.offset + state.index,
@@ -634,7 +537,9 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
           history: history.concat([sources]),
         })
       : undefined
+    // Keep recent back navigation bounded; the end of the retained window returns home.
     const previousSources = history.at(-1)
+      ?? (sources.some(source => source.before !== '' || source.offset !== 0) ? getDefaultTimelineSources(channels) : undefined)
     const afterCursor = previousSources
       ? encodeTimelineCursor({
           v: 2,
@@ -649,8 +554,7 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
       descriptionHTML: primaryChannelInfo.descriptionHTML || null,
       avatar: primaryChannelInfo.avatar,
       avatarNeedsProxy: true,
-      beforeCursor,
-      afterCursor,
+      timeline: { beforeCursor, afterCursor },
     }
 
     return applySiteBranding(channel, context)
@@ -679,7 +583,6 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
     const filterConfig = getPostFilterConfig(context)
     let allPosts: Post[] = []
     let primaryChannelInfo: Partial<ChannelInfo> = {}
-    const nextBeforeCursors: string[] = Array.from({ length: channels.length }).fill('0') as string[]
     const nextAfterCursors: string[] = Array.from({ length: channels.length }).fill('0') as string[]
 
     const fetchPromises = channels.map(async (targetChannel, index) => {
@@ -728,10 +631,8 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
         })),
       )).reverse()
 
-      const rawBeforeCursor = extractedPosts.at(-1)?.id?.replace(`${channel}-`, '') ?? ''
-      const rawAfterCursor = extractedPosts[0]?.id?.replace(`${channel}-`, '') ?? ''
+      const rawAfterCursor = getPostRawId(extractedPosts.find(post => post.id)?.id ?? '', channels)
 
-      nextBeforeCursors[index] = rawBeforeCursor
       nextAfterCursors[index] = rawAfterCursor
 
       return filterPosts(extractedPosts, filterConfig)
@@ -744,8 +645,6 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
 
     allPosts.sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime())
 
-    const finalBeforeCursor = nextBeforeCursors.some(Boolean) ? nextBeforeCursors.map(cursor => cursor || '0').join('-') : undefined
-    const finalAfterCursor = nextAfterCursors.some(Boolean) ? nextAfterCursors.map(cursor => cursor || '0').join('-') : undefined
     const channelInfo: ChannelInfo = {
       posts: allPosts,
       title: primaryChannelInfo.title || '',
@@ -753,8 +652,6 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
       descriptionHTML: primaryChannelInfo.descriptionHTML || null,
       avatar: primaryChannelInfo.avatar,
       avatarNeedsProxy: true,
-      beforeCursor: finalBeforeCursor,
-      afterCursor: finalAfterCursor,
       sitemapAfterCursor: nextAfterCursors.join('-'),
     }
 
