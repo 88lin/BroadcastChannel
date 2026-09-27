@@ -4,6 +4,7 @@ import type { RequestContext } from './types'
 import { LRUCache } from 'lru-cache'
 import { getConfiguredChannels, getSelectedChannel, resolveSelectedChannel } from '../channels'
 import { getBooleanEnv, getEnv, parseCsvList } from '../env'
+import { rememberChannelTitle } from './channel-titles'
 import { modifyHTMLContent } from './content'
 import { extractPost } from './parse'
 import { loadChannelDocument } from './request'
@@ -209,6 +210,7 @@ export async function getChannelSummary(context: RequestContext): Promise<Channe
   const channel = await loadCachedValue<ChannelInfo>(cacheKey, async () => {
     const [primaryChannel] = getChannels(context)
     const { $, telegramHost, staticProxy } = await loadChannelDocument(context, { channel: primaryChannel })
+    rememberChannelTitle(context, primaryChannel, $('.tgme_channel_info_header_title').text())
     const channelInfo: ChannelInfo = {
       posts: [],
       title: $('.tgme_channel_info_header_title').text(),
@@ -339,6 +341,7 @@ async function getTimelineSourcePage(
       before: currentBefore,
     })
 
+    rememberChannelTitle(context, channelName, $('.tgme_channel_info_header_title').text())
     if (channelIndex === 0 && !primaryChannelInfo.title) {
       primaryChannelInfo.title = $('.tgme_channel_info_header_title').text()
       primaryChannelInfo.description = $('.tgme_channel_info_description').text()
@@ -618,6 +621,7 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
         q,
       })
 
+      rememberChannelTitle(context, targetChannel, $('.tgme_channel_info_header_title').text())
       if (index === 0) {
         primaryChannelInfo = {
           title: $('.tgme_channel_info_header_title').text(),

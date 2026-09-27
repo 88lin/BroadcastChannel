@@ -2,15 +2,17 @@
 import List from '../components/list.astro'
 import { getSelectedChannel } from '../lib/channels'
 import { getTimelinePage } from '../lib/telegram'
+import { getChannelTitle } from '../lib/telegram/channel-titles'
 
 const { channel } = await getTimelinePage(Astro)
 const selectedChannel = getSelectedChannel(Astro)
-const pageHeading = selectedChannel ? `@${selectedChannel} | ${channel.title}` : channel.title
+const selectedTitle = selectedChannel ? await getChannelTitle(Astro, selectedChannel) : ''
+const pageHeading = selectedTitle ? `${selectedTitle} | ${channel.title}` : channel.title
 ---
 
 <List
   channel={channel}
   after={false}
   pageHeading={pageHeading}
-  pageSeo={selectedChannel ? { title: `@${selectedChannel}` } : undefined}
+  pageSeo={selectedTitle ? { title: selectedTitle } : undefined}
 />

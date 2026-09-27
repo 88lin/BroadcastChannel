@@ -3,6 +3,7 @@ import type { ChannelInfo, Post } from '../types'
 import { getSelectedChannel, withChannel } from './channels'
 import { sanitizeFeedHtml } from './sanitize'
 import { getChannelInfo } from './telegram'
+import { getChannelTitle } from './telegram/channel-titles'
 
 export interface FeedData {
   channel: ChannelInfo
@@ -66,6 +67,7 @@ export async function getFeedData(context: APIContext): Promise<FeedData> {
   })
   const siteUrl = new URL(context.locals.SITE_URL, context.url.origin)
   siteUrl.search = ''
+  const selectedTitle = channelFilter ? await getChannelTitle(context, channelFilter) : ''
 
   return {
     channel,
@@ -73,6 +75,6 @@ export async function getFeedData(context: APIContext): Promise<FeedData> {
     siteUrl,
     tag,
     channelFilter,
-    title: `${tag ? `${tag} | ` : ''}${channelFilter ? `@${channelFilter} | ` : ''}${channel.title}`,
+    title: `${tag ? `${tag} | ` : ''}${selectedTitle ? `${selectedTitle} | ` : ''}${channel.title}`,
   }
 }
