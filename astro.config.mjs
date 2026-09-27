@@ -34,6 +34,8 @@ const adapterProvider = process.env.SERVER_ADAPTER || (isEdgeOne ? 'edgeone' : p
 
 // https://astro.build/config
 export default defineConfig({
+  // Branch-specific production URL; preserve it when syncing deployment branches.
+  site: 'https://hub.88lin.eu.org',
   output: 'server',
   adapter: providers[adapterProvider] || providers.node,
   // The app does not use Astro.session; avoid requiring a Cloudflare Pages KV binding.
