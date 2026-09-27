@@ -52,4 +52,43 @@ const target = query ? `${SITE_URL}search/result?q=${encodeURIComponent(query)}`
     const centerOffset = (navigation.clientWidth - activeBounds.width) / 2
     navigation.scrollLeft += leftOffset - centerOffset
   }
+
+  const desktopPointer = window.matchMedia('(hover: hover) and (pointer: fine)')
+
+  navigation?.addEventListener(
+    'wheel',
+    (event) => {
+      if (!desktopPointer.matches || event.ctrlKey || event.shiftKey || !event.cancelable) {
+        return
+      }
+      if (Math.abs(event.deltaX) >= Math.abs(event.deltaY)) {
+        return
+      }
+      if (navigation.scrollWidth <= navigation.clientWidth) {
+        return
+      }
+
+      let distance = event.deltaY
+      if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+        distance *= Number.parseFloat(getComputedStyle(navigation).lineHeight) || 16
+      }
+      if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+        distance *= navigation.clientWidth
+      }
+
+      const maxScrollLeft = navigation.scrollWidth - navigation.clientWidth
+      const remaining = distance > 0 ? maxScrollLeft - navigation.scrollLeft : navigation.scrollLeft
+      // Scroll extents and the browser's actual position can differ by a rounded pixel.
+      if (remaining <= 1) {
+        return
+      }
+      const nextScrollLeft = Math.max(0, Math.min(maxScrollLeft, navigation.scrollLeft + distance))
+
+      if (nextScrollLeft !== navigation.scrollLeft) {
+        event.preventDefault()
+        navigation.scrollLeft = nextScrollLeft
+      }
+    },
+    { passive: false },
+  )
 </script>
