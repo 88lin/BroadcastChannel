@@ -8,9 +8,14 @@ import { getSelectedChannel, withChannel } from '../lib/channels'
 import { getBooleanEnv, getEnv, getPodcastUrl, getStringEnv, parseDelimitedItems } from '../lib/env'
 import { buildSocialLinks } from '../lib/social'
 import { siteTitleClass } from '../lib/style-classes'
+import { getChannelTitle } from '../lib/telegram/channel-titles'
 
 const { SITE_URL, RSS_URL, RSS_PREFIX } = Astro.locals
 const selectedChannel = getSelectedChannel(Astro)
+const selectedTitle = selectedChannel ? await getChannelTitle(Astro, selectedChannel) : ''
+const rssTitlePrefix = selectedChannel
+  ? RSS_PREFIX.replace(`@${selectedChannel} | `, () => `${selectedTitle} | `)
+  : RSS_PREFIX
 const { channel, seo: pageSeo } = Astro.props
 
 const localeEnv = getEnv(import.meta.env, Astro, 'LOCALE')
@@ -129,21 +134,20 @@ const layoutGridClass = 'mx-auto flex w-full max-w-[920px] flex-col sm:items-sta
 const mainPanelClass = 'w-full min-w-0 pb-5 pt-[10px] sm:flex-1 sm:pt-5'
 const topNavWrapClass = `mx-3 pt-4 sm:mx-5 ${showBanner ? 'md:sticky md:top-4' : 'md:fixed md:left-0 md:right-0 md:top-4'} md:z-50 md:mx-auto md:px-5 md:pt-0`
 const topNavClass =
-  'site-top-nav mx-auto flex w-full max-w-[920px] min-w-0 flex-col gap-3 overflow-hidden rounded-[26px] px-3 py-3 sm:px-4 md:min-h-[52px] md:flex-row md:items-center md:justify-between md:gap-2 md:py-2 md:pl-4 md:pr-2'
+  'site-top-nav mx-auto flex w-full max-w-[920px] min-w-0 flex-col gap-3 overflow-hidden rounded-[26px] px-3 py-3 sm:px-4 md:h-[52px] md:flex-row md:items-center md:justify-between md:gap-4 md:py-2 md:pl-4 md:pr-2'
 const topNavBrandClass =
-  'site-top-brand inline-flex max-w-full min-w-0 self-start items-center gap-2 rounded-full px-1.5 py-1 text-[15px] font-semibold leading-none text-heading no-underline hover:no-underline md:max-w-[200px] md:self-auto md:shrink-0'
+  'site-top-brand inline-flex max-w-full min-w-0 self-start items-center gap-2 rounded-full px-1.5 py-1 text-[15px] font-semibold leading-none text-heading no-underline hover:no-underline md:self-auto md:shrink-0'
 const topNavLogoClass = 'h-7 w-7 shrink-0 rounded-full border border-line bg-code object-cover shadow-soft'
 const topNavBrandTextClass = `truncate ${siteTitleClass}`
-const topNavGroupClass = 'flex w-full min-w-0 items-center gap-1.5 sm:justify-center md:w-auto md:flex-1'
-const navListClass = 'm-0 flex min-w-0 list-none flex-wrap items-center gap-1.5 p-0 md:flex-nowrap md:gap-1'
-const navItemClass = 'flex shrink-0 items-center text-[14px] leading-none'
+const topNavGroupClass = 'flex w-full min-w-0 items-center gap-1.5 sm:justify-center md:w-auto md:flex-none'
+const navListClass = 'm-0 flex min-w-0 list-none flex-wrap items-center gap-1.5 p-0 md:flex-nowrap md:gap-3'
+const navItemClass = 'flex items-center text-[14px] leading-none'
 const navLinkClass =
-  'nav-btn inline-flex h-10 min-w-0 items-center justify-center rounded-full px-3 py-1 text-[14px] font-semibold tracking-[0.1em] text-heading no-underline transition-all duration-100 ease-in-out hover:no-underline active:translate-y-0 md:px-2'
+  'nav-btn inline-flex h-10 min-w-0 items-center justify-center rounded-full px-3 py-1 text-[14px] font-semibold tracking-[0.1em] text-heading no-underline transition-all duration-100 ease-in-out hover:no-underline active:translate-y-0 md:min-w-[76px]'
 const navLinkCurrentClass = 'nav-btn--active font-medium'
 const skipLinkClass =
   'pointer-events-none absolute left-5 top-0 z-[1100] -translate-y-full rounded-panel bg-heading px-3 py-2 text-sm text-white no-underline transition-transform duration-150 focus-visible:pointer-events-auto focus-visible:translate-y-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-heading'
-const topNavActionClass =
-  'flex w-full min-w-0 flex-wrap items-center gap-2 sm:justify-end md:w-auto md:shrink-0 md:flex-nowrap'
+const topNavActionClass = 'flex w-full min-w-0 flex-wrap items-center gap-2 sm:justify-end md:w-auto'
 const socialNavClass = 'flex items-center gap-1'
 const socialLinkClass =
   'group inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-muted no-underline transition duration-100 hover:border-[#93c5fd] hover:bg-[#ebf4ff] hover:text-[#1e73be] hover:no-underline'
@@ -166,7 +170,7 @@ const searchLabelText = 'Search'
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#fdfdf7" />
-    <link rel="alternate" type="application/rss+xml" title={`${RSS_PREFIX}${channel?.title}`} href={RSS_URL} />
+    <link rel="alternate" type="application/rss+xml" title={`${rssTitlePrefix}${channel?.title}`} href={RSS_URL} />
     <SEO
       titleTemplate={hasCustomTitle ? `%s | ${siteTitle}` : undefined}
       titleDefault={siteTitle || seoParams.description}
@@ -209,7 +213,7 @@ const searchLabelText = 'Search'
           <span class={topNavBrandTextClass}>{channel?.title}</span>
         </a>
         <div class={topNavGroupClass}>
-          <nav class="min-w-0 md:overflow-x-auto" aria-label="Primary navigation">
+          <nav aria-label="Primary navigation">
             <ul class={navListClass}>
               <li class={navItemClass}>
                 <a
@@ -285,7 +289,7 @@ const searchLabelText = 'Search'
               class={searchInputClass}
               type="search"
               name="q"
-              placeholder={selectedChannel ? `搜索 @${selectedChannel}` : 'Search'}
+              placeholder="Search"
               value={Astro.url.searchParams.get('q') || ''}
               autocomplete="off"
               inputmode="search"
