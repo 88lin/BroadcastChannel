@@ -8,12 +8,17 @@ minimumReleaseAgeExclude:
   - '@astrojs/netlify@7.0.13'
   - astro@6.4.6
   - ocache@0.1.5
-  - sanitize-html@2.17.5
+  - sanitize-html@2.17.7
 overrides:
+  axios@>=1.0.0 <1.18.0: 1.18.0
+  form-data@>=4.0.0 <4.0.6: 4.0.6
   path-to-regexp@6.1.0: 6.3.0
   semver@6.0.0: 6.3.1
-  tar@6.1.11: 7.5.16
-  tar@6.2.1: 7.5.16
+  svgo@>=3.0.0 <3.3.5: 3.3.5
+  tar@>=7.0.0 <7.5.21: 7.5.21
+  undici@>=6.0.0 <6.28.0: 6.28.0
+  tar@6.1.11: 7.5.21
+  tar@6.2.1: 7.5.21
 peerDependencyRules:
   allowedVersions:
     prismjs-components-importer@0.2.0>prismjs: 1.30.0

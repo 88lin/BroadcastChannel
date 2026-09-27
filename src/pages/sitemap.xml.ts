@@ -50,7 +50,7 @@ export const GET: APIRoute = async (Astro) => {
     }
   }
   else {
-    let count = Number(posts[0]?.id ?? 0)
+    let count = Number(channel.sitemapAfterCursor || posts[0]?.id || 0)
     if (Number.isFinite(count) && count > 0) {
       pages.push(String(count))
       while (count > pageSize) {
