@@ -37,13 +37,16 @@ function toSiteAssetUrl(value: string | undefined): string | undefined {
 const absoluteSiteUrl = SITE_URL.startsWith('http') ? SITE_URL : new URL(SITE_URL, Astro.url.origin).toString()
 const canonicalUrl = new URL(Astro.url.pathname, absoluteSiteUrl)
 const siteRootPathname = normalizePathname(new URL(absoluteSiteUrl).pathname)
-if (selectedChannel && normalizePathname(canonicalUrl.pathname) === siteRootPathname) {
+const isTimelinePage =
+  normalizePathname(canonicalUrl.pathname) === siteRootPathname ||
+  ['before/', 'after/'].some((path) => canonicalUrl.pathname.startsWith(new URL(path, absoluteSiteUrl).pathname))
+if (selectedChannel && isTimelinePage) {
   canonicalUrl.searchParams.set('channel', selectedChannel)
 }
-const canonical =
-  normalizePathname(canonicalUrl.pathname) === siteRootPathname
-    ? canonicalUrl.toString()
-    : canonicalUrl.toString().replace(/\/$/, '')
+if (normalizePathname(canonicalUrl.pathname) !== siteRootPathname) {
+  canonicalUrl.pathname = normalizePathname(canonicalUrl.pathname)
+}
+const canonical = canonicalUrl.toString()
 
 const { pathname } = new URL(canonical)
 const currentPathname = normalizePathname(pathname)

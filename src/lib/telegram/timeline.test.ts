@@ -215,6 +215,33 @@ describe('multi-channel timeline', () => {
     expect(first.posts.slice(0, 4).map(post => post.id)).toEqual(['beta-1', '1', 'beta-2', '2'])
   })
 
+  it.each(['current', 'previous'])('does not replay lower IDs consumed on the %s offset page', async (pageWithInversion) => {
+    if (pageWithInversion === 'current') {
+      entries.alpha.find(post => post.id === 39)!.time = 80
+      entries.alpha.find(post => post.id === 40)!.time = 78
+    }
+    else {
+      entries.alpha = entries.alpha.slice(0, 20)
+      entries.alpha[0].time = 90
+    }
+    const expected = new Set([
+      ...entries.alpha.map(post => String(post.id)),
+      ...entries.beta.map(post => `beta-${post.id}`),
+    ])
+    const ids: string[] = []
+    let cursor = ''
+    for (let page = 0; page < 10; page += 1) {
+      const { channel } = await api.getTimelinePage(context, cursor)
+      ids.push(...channel.posts.map(post => post.id))
+      cursor = channel.timeline?.beforeCursor ?? ''
+      if (!cursor)
+        break
+    }
+    expect(cursor).toBe('')
+    expect(ids).toHaveLength(expected.size)
+    expect(new Set(ids)).toEqual(expected)
+  })
+
   it('fills pages across filtered source batches', async () => {
     vi.stubEnv('AD_KEYWORDS', 'advertisement')
     for (const posts of Object.values(entries)) {
