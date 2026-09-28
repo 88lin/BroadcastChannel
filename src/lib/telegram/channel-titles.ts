@@ -36,7 +36,8 @@ export async function getChannelTitle(context: RequestContext, channel: string):
 
   const request = (async () => {
     try {
-      const { $ } = await loadChannelDocument(context, { channel: selected })
+      // Names are optional metadata: abort promptly instead of blocking a working page.
+      const { $ } = await loadChannelDocument(context, { channel: selected, timeout: 1000, retry: 0 })
       const title = $('.tgme_channel_info_header_title').text().trim()
       if (!title)
         throw new Error('Channel title unavailable')

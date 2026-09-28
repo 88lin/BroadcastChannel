@@ -509,8 +509,11 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
       if (remainingVisible > 0) {
         const lastConsumed = state.page.posts[state.index - 1]
         const before = lastConsumed && getPostRawId(lastConsumed.id, channels)
-        // ID boundaries survive deleted/filtered earlier messages. Retain offsets for non-monotonic source timestamps.
-        if (before && state.page.posts.slice(state.index).every(post => compareRawIdsDesc(getPostRawId(post.id, channels), before) > 0)) {
+        // An ID boundary must exclude every consumed post and include every remaining post.
+        // A resumed offset page no longer contains its consumed prefix, so keep its offset.
+        if (before && state.page.source.offset === 0
+          && state.page.posts.slice(0, state.index).every(post => compareRawIdsDesc(getPostRawId(post.id, channels), before) <= 0)
+          && state.page.posts.slice(state.index).every(post => compareRawIdsDesc(getPostRawId(post.id, channels), before) > 0)) {
           return { before, offset: 0 }
         }
         return {
