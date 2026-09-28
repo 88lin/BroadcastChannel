@@ -5,7 +5,12 @@ import { defineCachedFunction } from 'ocache'
 import { $fetch } from 'ofetch'
 import { getBooleanEnv, getEnv, getStaticProxy, getTelegramHost } from '../env'
 
-interface TelegramHtmlParams {
+interface TelegramRequestOptions {
+  timeout?: number
+  retry?: number
+}
+
+interface TelegramHtmlParams extends TelegramRequestOptions {
   host: string
   channel: string
   id?: string
@@ -15,7 +20,7 @@ interface TelegramHtmlParams {
   headers: Record<string, string>
 }
 
-interface LoadChannelDocumentParams extends GetChannelInfoParams {
+interface LoadChannelDocumentParams extends GetChannelInfoParams, TelegramRequestOptions {
   channel?: string
   id?: string
 }
@@ -35,7 +40,7 @@ export function getTelegramRequestHeaders(): Record<string, string> {
   }
 }
 
-async function fetchTelegramHtml({ host, channel, id, before, after, q, headers }: TelegramHtmlParams): Promise<string> {
+async function fetchTelegramHtml({ host, channel, id, before, after, q, headers, timeout = 15000, retry = 3 }: TelegramHtmlParams): Promise<string> {
   const requestUrl = id
     ? `https://${host}/${channel}/${id}?embed=1&mode=tme`
     : `https://${host}/s/${channel}`
@@ -48,8 +53,8 @@ async function fetchTelegramHtml({ host, channel, id, before, after, q, headers 
       q: q || undefined,
     },
     responseType: 'text',
-    timeout: 15000,
-    retry: 3,
+    timeout,
+    retry,
     retryDelay: 100,
   })
 }
@@ -59,13 +64,16 @@ const loadTelegramHtml = defineCachedFunction(fetchTelegramHtml, {
   maxAge: 60 * 5,
   // Detached refreshes lack a Cloudflare waitUntil context and can leave a pending promise stuck.
   swr: false,
-  getKey: ({ host, channel, id, before, after, q }) => JSON.stringify({
+  getKey: ({ host, channel, id, before, after, q, timeout = 15000, retry = 3 }) => JSON.stringify({
     host,
     channel,
     id: id || '',
     before: before || '',
     after: after || '',
     q: q || '',
+    // Short metadata requests must not join a slower content request (or vice versa).
+    timeout,
+    retry,
   }),
 })
 
@@ -73,7 +81,7 @@ export async function loadChannelDocument(
   context: RequestContext,
   params: LoadChannelDocumentParams = {},
 ): Promise<LoadedChannelDocument> {
-  const { before, after, q, id } = params
+  const { before, after, q, id, timeout, retry } = params
   const host = getTelegramHost(import.meta.env, context)
   const channel = params.channel ?? getRequiredEnv(context, 'CHANNEL')
   const staticProxy = getStaticProxy(import.meta.env, context)
@@ -85,6 +93,8 @@ export async function loadChannelDocument(
     before,
     after,
     q,
+    timeout,
+    retry,
     headers: getTelegramRequestHeaders(),
   })
 
