@@ -19,7 +19,7 @@ function normalizeProxyableStyleUrl(staticProxy: string, url: string): string {
 }
 
 export function proxyStyleUrls($: CheerioAPI, root: MessageSelection, staticProxy: string): void {
-  const nodes = [...root.toArray(), ...root.find('*').toArray()]
+  const nodes = [...root.toArray(), ...root.find('[style]').toArray()]
 
   for (const node of nodes) {
     const element = $(node)

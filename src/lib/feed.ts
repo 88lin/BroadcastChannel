@@ -7,7 +7,7 @@ import { getChannelTitle } from './telegram/channel-titles'
 
 export interface FeedData {
   channel: ChannelInfo
-  posts: Post[]
+  posts: readonly Post[]
   siteUrl: URL
   tag: string | null
   title: string
@@ -26,7 +26,7 @@ export interface JsonFeedData {
     title: string | undefined
     summary: string | undefined
     date_published: string
-    tags: string[]
+    tags: readonly string[]
     content_html: string
   }[]
 }

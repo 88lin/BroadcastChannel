@@ -7,6 +7,7 @@ const STYLE_DOUBLE_QUOTED_URL_REGEX = /url\("([^"]*)"\)/gi
 const STYLE_SINGLE_QUOTED_URL_REGEX = /url\('([^']*)'\)/gi
 const STYLE_UNQUOTED_URL_REGEX = /url\(([^)"']*)\)/gi
 const URL_ATTRIBUTE_NAMES = ['href', 'src', 'poster', 'action', 'formaction', 'data-webp'] as const
+const URL_ATTRIBUTE_SELECTOR = [...URL_ATTRIBUTE_NAMES, 'srcset', 'style'].map(name => `[${name}]`).join(',')
 const HTML_ENTITY_MAP: Record<string, string> = {
   amp: '&',
   apos: '\'',
@@ -81,7 +82,7 @@ function normalizeStyleUrls(style: string): string {
 }
 
 export function normalizeUrlAttributes($: CheerioAPI, root: MessageSelection): void {
-  const nodes = [...root.toArray(), ...root.find('*').toArray()]
+  const nodes = [...root.toArray(), ...root.find(URL_ATTRIBUTE_SELECTOR).toArray()]
 
   for (const node of nodes) {
     const element = $(node)

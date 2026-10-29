@@ -347,12 +347,25 @@ describe('multi-channel timeline', () => {
     warn.mockRestore()
   })
 
-  it('coalesces concurrent loads and isolates callers from cached mutations', async () => {
+  it('coalesces concurrent loads and shares deeply frozen results', async () => {
     const [first, second] = await Promise.all([api.getTimelinePage(context), api.getTimelinePage(context)])
     expect(loadDocument).toHaveBeenCalledTimes(2)
-    first.channel.posts[0].title = 'Mutated'
+    expect(first.channel).toBe(second.channel)
+    expect(Object.isFrozen(first.channel.posts)).toBe(true)
+    expect(Object.isFrozen(first.channel.posts[0].tags)).toBe(true)
+    expect(Reflect.set(first.channel.posts[0], 'title', 'Mutated')).toBe(false)
     expect(second.channel.posts[0].title).not.toBe('Mutated')
     expect((await api.getTimelinePage(context)).channel.posts[0].title).not.toBe('Mutated')
+  })
+
+  it('reuses parsed source pages across mixed/selected timelines and feeds', async () => {
+    await api.getTimelinePage(context)
+    expect(loadDocument).toHaveBeenCalledTimes(2)
+    const feed = await api.getChannelInfo(context)
+    expect(loadDocument).toHaveBeenCalledTimes(2)
+    const selected = await api.getChannelInfo(context, { channel: 'alpha' })
+    expect(loadDocument).toHaveBeenCalledTimes(2)
+    expect(selected.posts[0]).toBe(feed.posts.find(post => post.id === selected.posts[0].id))
   })
 
   it('stops when upstream repeats a page instead of looping forever', async () => {

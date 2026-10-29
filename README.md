@@ -104,6 +104,16 @@
 
 Cloudflare Pages 部署使用 Astro 5 和 `@astrojs/cloudflare` v12 的 Pages SSR 适配器。构建命令填写 `pnpm build`，构建输出目录填写 `dist`，并在 Pages 环境变量中配置 `CHANNEL` 等变量。
 
+Cloudflare 专用 Worker 入口会使用 `caches.default` 缓存公开页面、RSS 和站点地图。缓存命中发生在 Astro 路由和渲染之前；缓存键保留完整 URL（包含频道、搜索、标签与分页参数），每次构建自动更换命名空间。HTML 的边缘 TTL 为 30 分钟，订阅沿用各路由的 TTL。Cache API 不执行 `stale-while-revalidate`，过期后由下次请求重新生成；不同数据中心的缓存也不共享。
+
+带 Cookie、Authorization、Range 或强制重新验证指令的请求绕过缓存；错误、重定向、`Set-Cookie`、`Vary`、私有或禁止缓存的响应不会写入。公开响应可用 `X-Response-Cache: MISS/HIT/BYPASS` 检查缓存路径，Cookie 等在入口直接绕过的请求没有该响应头。缓存未命中时，对没有 ETag 的响应读取正文并计算 SHA-256 弱 ETag；内容相同则重新填充后仍保持一致。命中时直接使用已保存的 ETag，条件 GET/HEAD 可返回 304，不重新读取或散列正文。
+
+代码块由服务端输出经过转义的 `<pre><code>`，保留缩进、换行和语言标注。浏览器在代码块接近视口时，通过一个 Web Worker 按需加载 Prism 及对应语法恢复着色；没有语言标注时才加载 flourite 识别。高亮不在 Cloudflare 请求路径执行，也不占用浏览器主线程做识别和分词。禁用 JavaScript、Worker 加载失败、未知语言或超过 100,000 个字符的代码块仍显示纯文本。没有代码块的页面不会加载高亮 Worker 和语法库；订阅保持经过清洗的可读代码文本。
+
+Telegram 解析结果按源页面复用，进程内缓存只保存只读对象，以约 8 MiB 的估算预算和 256 条目双重限制代替整页 JSON 序列化记账；该预算不是 Worker 总堆内存的保证。Cloudflare 入口为兼容 Astro 5 与 Workers 的流式输出问题而缓冲完整响应，缓存填充时的内容哈希也需要读取正文，因此冷请求仍有额外的首字节延迟和内存成本，详见验证记录。
+
+性能测量、Cloudflare 本地验证及上线验收步骤见 [Cloudflare CPU 优化验证](docs/cloudflare-cpu.md)。免费套餐的 10ms CPU 限制仍适用于缓存未命中的请求，本地基准不能替代部署后的 CPU 分位数和错误统计。
+
 ## ⚒️ 配置
 
 ```env

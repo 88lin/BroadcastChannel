@@ -14,7 +14,9 @@ const providers = {
     isr: false,
     edgeMiddleware: false,
   }),
-  cloudflare_pages: cloudflare(),
+  cloudflare_pages: cloudflare({
+    workerEntryPoint: { path: './src/worker.ts' },
+  }),
   netlify: netlify({
     cacheOnDemandPages: false,
     edgeMiddleware: false,
@@ -46,6 +48,10 @@ export default defineConfig({
     astroIcon(),
   ],
   vite: {
+    worker: { format: 'es' },
+    define: {
+      'import.meta.env.RESPONSE_CACHE_BUILD_ID': JSON.stringify(Date.now().toString(36)),
+    },
     plugins: [tailwindcss()],
     ssr: {
       noExternal: (process.env.DOCKER || adapterProvider === 'edgeone') ? true : undefined,
