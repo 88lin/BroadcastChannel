@@ -61,7 +61,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
 
     if (shouldApplyDefaultCache(response)) {
-      response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=1800, stale-while-revalidate=86400')
+      const isPrivate = context.request.headers.has('Cookie') || context.request.headers.has('Authorization') || response.headers.has('Set-Cookie')
+      response.headers.set('Cache-Control', isPrivate ? 'private, no-store' : 'public, max-age=60, s-maxage=1800, stale-while-revalidate=86400')
     }
   }
   return response

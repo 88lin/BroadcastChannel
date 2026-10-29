@@ -1,11 +1,12 @@
 import type { ChannelInfo, GetChannelInfoParams, Post, TimelinePage } from '../../types'
 import type { TimelineCursorPayload, TimelineSourceCursor } from './timeline-cursor'
 import type { RequestContext } from './types'
-import { LRUCache } from 'lru-cache'
 import { getConfiguredChannels, getSelectedChannel, resolveSelectedChannel } from '../channels'
 import { getBooleanEnv, getEnv, parseCsvList } from '../env'
+import { getCachedValue, loadCachedValue, setCacheValue } from './cache'
 import { rememberChannelTitle } from './channel-titles'
 import { modifyHTMLContent } from './content'
+import { getParsedChannelPage } from './page'
 import { extractPost } from './parse'
 import { loadChannelDocument } from './request'
 import { decodeTimelineCursor, encodeTimelineCursor, InvalidTimelineCursorError } from './timeline-cursor'
@@ -14,6 +15,7 @@ import { normalizeUrlAttribute } from './url'
 export { InvalidTimelineCursorError, isRecoverableTimelineCursorError, isRootTimelineCursor } from './timeline-cursor'
 
 type CacheValue = ChannelInfo | Post
+type ChannelMetadata = { -readonly [Key in keyof ChannelInfo]?: ChannelInfo[Key] }
 
 interface PostFilterConfig {
   filterImages: boolean
@@ -33,71 +35,10 @@ interface TimelineMergeState {
   index: number
 }
 
-const FRESH_CACHE_TTL = 1000 * 60 * 5
-const STALE_CACHE_TTL = 1000 * 60 * 60 * 24
 const TIMELINE_PAGE_SIZE = 24
-const cacheSizeEncoder = new TextEncoder()
-
-// The budgets measure serialized UTF-8 bytes, not the total JavaScript heap footprint.
-const cache = new LRUCache<string, CacheValue>({
-  ttl: FRESH_CACHE_TTL,
-  maxSize: 50 * 1024 * 1024,
-})
-
-const staleCache = new LRUCache<string, CacheValue>({
-  ttl: STALE_CACHE_TTL,
-  maxSize: 50 * 1024 * 1024,
-})
-
-const inFlightRequests = new Map<string, Promise<CacheValue | null>>()
-
-function cloneCacheValue<T extends CacheValue>(value: T): T {
-  return structuredClone(value)
-}
 
 function isChannelInfo(value: CacheValue): value is ChannelInfo {
   return 'posts' in value
-}
-
-function setCacheValue(key: string, value: CacheValue): void {
-  const size = cacheSizeEncoder.encode(JSON.stringify(value)).byteLength
-  cache.set(key, value, { size })
-  staleCache.set(key, value, { size })
-}
-
-async function loadCachedValue<T extends CacheValue | null>(
-  key: string,
-  loadValue: () => Promise<T>,
-): Promise<T> {
-  const existingRequest = inFlightRequests.get(key) as Promise<T> | undefined
-  if (existingRequest) {
-    return existingRequest
-  }
-
-  const request = loadValue()
-    .then((value) => {
-      if (value) {
-        setCacheValue(key, value)
-      }
-      return value
-    })
-    .catch((error) => {
-      const staleValue = staleCache.get(key) as T | undefined
-      if (staleValue) {
-        console.warn('Serving stale cache after fetch failure', {
-          key,
-          error: error instanceof Error ? error.message : String(error),
-        })
-        return staleValue
-      }
-      throw error
-    })
-    .finally(() => {
-      inFlightRequests.delete(key)
-    })
-
-  inFlightRequests.set(key, request)
-  return request
 }
 
 function getOptionalStringEnv(context: RequestContext, name: string): string | undefined {
@@ -138,10 +79,10 @@ export function isRenderablePost(post: Post | null | undefined): post is Post {
 export async function getChannelPost(context: RequestContext, id: string): Promise<Post | null> {
   const channels = getChannels(context)
   const cacheKey = JSON.stringify({ scope: 'post', channels, id })
-  const cachedResult = cache.get(cacheKey)
+  const cachedResult = getCachedValue<CacheValue>(cacheKey)
 
   if (cachedResult && !isChannelInfo(cachedResult)) {
-    return cloneCacheValue(cachedResult)
+    return cachedResult
   }
 
   const loadedPost = await loadCachedValue<Post | null>(cacheKey, async () => {
@@ -178,15 +119,15 @@ export async function getChannelPost(context: RequestContext, id: string): Promi
     return isRenderablePost(post) ? post : null
   })
 
-  return loadedPost ? cloneCacheValue(loadedPost) : null
+  return loadedPost || null
 }
 
 export async function getChannelSummary(context: RequestContext): Promise<ChannelInfo> {
   const cacheKey = JSON.stringify({ scope: 'channel-summary', channels: getChannels(context) })
-  const cachedResult = cache.get(cacheKey)
+  const cachedResult = getCachedValue<CacheValue>(cacheKey)
 
   if (cachedResult && isChannelInfo(cachedResult)) {
-    return cloneCacheValue(cachedResult)
+    return cachedResult
   }
 
   const siteName = getOptionalStringEnv(context, 'SITE_NAME')
@@ -204,7 +145,7 @@ export async function getChannelSummary(context: RequestContext): Promise<Channe
     }
 
     setCacheValue(cacheKey, brandedChannel)
-    return cloneCacheValue(brandedChannel)
+    return brandedChannel
   }
 
   const channel = await loadCachedValue<ChannelInfo>(cacheKey, async () => {
@@ -223,7 +164,7 @@ export async function getChannelSummary(context: RequestContext): Promise<Channe
     return applySiteBranding(channelInfo, context)
   })
 
-  return cloneCacheValue(channel)
+  return channel
 }
 
 function getPostFilterConfig(context: RequestContext): PostFilterConfig {
@@ -238,7 +179,7 @@ function getPostFilterConfig(context: RequestContext): PostFilterConfig {
   }
 }
 
-function filterPosts(posts: Post[], filterConfig: PostFilterConfig): Post[] {
+function filterPosts(posts: readonly Post[], filterConfig: PostFilterConfig): Post[] {
   const { filterImages, filterFiles, adRegex } = filterConfig
 
   return posts
@@ -321,7 +262,7 @@ async function getTimelineSourcePage(
   source: TimelineSourceCursor,
   channels: string[],
   filterConfig: PostFilterConfig,
-  primaryChannelInfo: Partial<ChannelInfo>,
+  primaryChannelInfo: ChannelMetadata,
 ): Promise<TimelineSourcePage> {
   if (source.before === '0') {
     return {
@@ -336,32 +277,19 @@ async function getTimelineSourcePage(
   let offsetToSkip = source.offset
 
   while (true) {
-    const { $, channel, telegramHost, staticProxy, reactionsEnabled } = await loadChannelDocument(context, {
+    const page = await getParsedChannelPage(context, channels, {
       channel: channelName,
       before: currentBefore,
     })
 
-    rememberChannelTitle(context, channelName, $('.tgme_channel_info_header_title').text())
     if (channelIndex === 0 && !primaryChannelInfo.title) {
-      primaryChannelInfo.title = $('.tgme_channel_info_header_title').text()
-      primaryChannelInfo.description = $('.tgme_channel_info_description').text()
-      primaryChannelInfo.descriptionHTML = (await modifyHTMLContent($, $('.tgme_channel_info_description'), { telegramHost, staticProxy })).html()
-      primaryChannelInfo.avatar = normalizeOptionalUrlAttribute($('.tgme_page_photo_image img').attr('src'))
+      primaryChannelInfo.title = page.title
+      primaryChannelInfo.description = page.description
+      primaryChannelInfo.descriptionHTML = page.descriptionHTML
+      primaryChannelInfo.avatar = page.avatar
     }
 
-    const postNodes = $('.tgme_channel_history .tgme_widget_message_wrap').toArray()
-    const extractedPosts = (await Promise.all(
-      postNodes.map((item, index) => extractPost($, item, {
-        channel,
-        telegramHost,
-        staticProxy,
-        index,
-        reactionsEnabled,
-        isMultiChannel: channels.length > 1,
-        isPrimaryChannel: channelIndex === 0,
-        allChannels: channels,
-      })),
-    )).reverse()
+    const extractedPosts = page.posts
 
     const visiblePosts = filterPosts(extractedPosts, filterConfig).sort((a, b) => compareTimelineEntries(a, b, channels))
     const nextBefore = getPostRawId(extractedPosts.filter(post => post.id).at(-1)?.id ?? '', channels) || '0'
@@ -405,11 +333,11 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
   const channels = getChannels(context)
   const selectedChannel = getSelectedChannel(context)
   const cacheKey = JSON.stringify({ scope: 'timeline', channels, selectedChannel, cursor })
-  const cachedResult = cache.get(cacheKey)
+  const cachedResult = getCachedValue<CacheValue>(cacheKey)
 
   if (cachedResult && isChannelInfo(cachedResult)) {
     return {
-      channel: cloneCacheValue(cachedResult),
+      channel: cachedResult,
       pageSize: TIMELINE_PAGE_SIZE,
     }
   }
@@ -437,7 +365,7 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
       throw new InvalidTimelineCursorError('Timeline cursor contains an unselected source')
     }
     // Exhausted sources are not fetched again, but the site's identity still comes from the primary channel.
-    const primaryChannelInfo: Partial<ChannelInfo> = sources[0].before === '0'
+    const primaryChannelInfo: ChannelMetadata = sources[0].before === '0'
       ? await getChannelSummary(context)
       : {}
     const states: TimelineMergeState[] = (await Promise.all(
@@ -572,7 +500,7 @@ export async function getTimelinePage(context: RequestContext, cursor = ''): Pro
   })
 
   return {
-    channel: cloneCacheValue(brandedChannel),
+    channel: brandedChannel,
     pageSize: TIMELINE_PAGE_SIZE,
   }
 }
@@ -582,19 +510,18 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
   const channels = getChannels(context)
   const selectedChannel = resolveSelectedChannel(channels, params.channel)
   const cacheKey = JSON.stringify({ scope: 'channel', channels, selectedChannel, before, after, q })
-  const cachedResult = cache.get(cacheKey)
+  const cachedResult = getCachedValue<CacheValue>(cacheKey)
 
   if (cachedResult && isChannelInfo(cachedResult)) {
-    return cloneCacheValue(cachedResult)
+    return cachedResult
   }
 
   const brandedChannelInfo = await loadCachedValue<ChannelInfo>(cacheKey, async () => {
-    const isMultiChannel = channels.length > 1
     const beforeCursors = before ? before.split('-') : []
     const afterCursors = after ? after.split('-') : []
     const filterConfig = getPostFilterConfig(context)
     let allPosts: Post[] = []
-    let primaryChannelInfo: Partial<ChannelInfo> = selectedChannel && selectedChannel !== channels[0]
+    let primaryChannelInfo: ChannelMetadata = selectedChannel && selectedChannel !== channels[0]
       ? await getChannelSummary(context)
       : {}
     const nextAfterCursors: string[] = Array.from({ length: channels.length }).fill('0') as string[]
@@ -617,36 +544,23 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
         return []
       }
 
-      const { $, channel, telegramHost, staticProxy, reactionsEnabled } = await loadChannelDocument(context, {
+      const page = await getParsedChannelPage(context, channels, {
         channel: targetChannel,
         before: channelBefore,
         after: channelAfter,
         q,
       })
 
-      rememberChannelTitle(context, targetChannel, $('.tgme_channel_info_header_title').text())
       if (index === 0) {
         primaryChannelInfo = {
-          title: $('.tgme_channel_info_header_title').text(),
-          description: $('.tgme_channel_info_description').text(),
-          descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { telegramHost, staticProxy })).html(),
-          avatar: normalizeOptionalUrlAttribute($('.tgme_page_photo_image img').attr('src')),
+          title: page.title,
+          description: page.description,
+          descriptionHTML: page.descriptionHTML,
+          avatar: page.avatar,
         }
       }
 
-      const postNodes = $('.tgme_channel_history .tgme_widget_message_wrap').toArray()
-      const extractedPosts = (await Promise.all(
-        postNodes.map((item, postIndex) => extractPost($, item, {
-          channel,
-          telegramHost,
-          staticProxy,
-          index: postIndex,
-          reactionsEnabled,
-          isMultiChannel,
-          isPrimaryChannel: index === 0,
-          allChannels: channels,
-        })),
-      )).reverse()
+      const extractedPosts = page.posts
 
       const rawAfterCursor = getPostRawId(extractedPosts.find(post => post.id)?.id ?? '', channels)
 
@@ -675,5 +589,5 @@ export async function getChannelInfo(context: RequestContext, params: GetChannel
     return applySiteBranding(channelInfo, context)
   })
 
-  return cloneCacheValue(brandedChannelInfo)
+  return brandedChannelInfo
 }
