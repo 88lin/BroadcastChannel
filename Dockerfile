@@ -1,11 +1,11 @@
-FROM node:lts-alpine AS base
+FROM node:22-alpine AS base
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
 
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN npm install --global "$(node -p 'require("./package.json").packageManager')"
 
 # FROM base AS prod-deps
 # RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile

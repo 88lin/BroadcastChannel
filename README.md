@@ -87,6 +87,8 @@
 
 ### Docker
 
+镜像使用 Node 22，与项目 CI 保持一致；构建时从 `package.json` 的 `packageManager` 字段读取并安装指定版本的 pnpm，不依赖基础镜像预装 Corepack。
+
 1. `docker pull ghcr.io/miantiao-me/broadcastchannel:main`
 2. `docker run -d --name broadcastchannel -p 4321:4321 -e CHANNEL=miantiao_me ghcr.io/miantiao-me/broadcastchannel:main`
 
