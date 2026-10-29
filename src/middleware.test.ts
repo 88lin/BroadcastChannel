@@ -11,7 +11,7 @@ describe('middleware response header helpers', () => {
   it('keeps channel and tag in feed links and legacy search rewrites', async () => {
     vi.stubEnv('CHANNEL', 'alpha,beta')
     const rewrite = vi.fn(async (_path: string) => new Response('<html></html>'))
-    const context = { locals: {}, url: new URL('https://site.example/search/%23tag?channel=beta'), params: {}, rewrite } as unknown as Parameters<typeof onRequest>[0]
+    const context = { locals: {}, request: new Request('https://site.example/'), url: new URL('https://site.example/search/%23tag?channel=beta'), params: {}, rewrite } as unknown as Parameters<typeof onRequest>[0]
     await onRequest(context, async () => new Response(''))
     const feed = new URL(context.locals.RSS_URL, context.url.origin)
     expect(feed.searchParams.get('channel')).toBe('beta')
@@ -46,6 +46,17 @@ describe('middleware response header helpers', () => {
 
   it('applies default cache to successful responses without cache headers', () => {
     expect(shouldApplyDefaultCache(new Response('', { status: 200 }))).toBe(true)
+  })
+
+  it.each(['Cookie', 'Authorization'])('marks requests carrying %s as private', async (header) => {
+    const context = {
+      locals: {},
+      params: {},
+      url: new URL('https://site.example/'),
+      request: new Request('https://site.example/', { headers: { [header]: 'private' } }),
+    } as unknown as Parameters<typeof onRequest>[0]
+    const response = await onRequest(context, async () => new Response('page')) as Response
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store')
   })
 
   it('applies default cache to redirects without cache headers', () => {

@@ -33,3 +33,11 @@ jobs:
         run: pnpm test
       - name: Build
         run: pnpm build
+      - name: Build Cloudflare Worker
+        env:
+          SERVER_ADAPTER: cloudflare_pages
+        run: pnpm build --site https://cloudflare-test.example
+      - name: Verify Cloudflare Worker
+        env:
+          CF_TEST_SITE: https://cloudflare-test.example
+        run: pnpm verify:cloudflare

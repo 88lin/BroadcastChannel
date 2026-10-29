@@ -1,7 +1,5 @@
-import type { CheerioAPI } from 'cheerio'
+import type { AnyNode, CheerioAPI } from 'cheerio'
 import type { IndexedStaticProxyOptions, MessageSelection, StaticProxyOptions } from './types'
-import flourite from 'flourite'
-import prism, { ensurePrismLanguage } from '../prism'
 import { getCustomEmojiImage } from './emoji'
 import { proxyStyleUrls } from './renderers/html'
 import { normalizeUrlAttribute, normalizeUrlAttributes } from './url'
@@ -13,6 +11,14 @@ interface ModifyHTMLContentOptions extends IndexedStaticProxyOptions {
 
 interface HydrateTgEmojiOptions extends StaticProxyOptions {
   telegramHost?: string
+}
+
+function getCodeText(node: AnyNode): string {
+  if (node.type === 'text')
+    return node.data
+  if (node.type === 'tag' && node.name === 'br')
+    return '\n'
+  return 'children' in node ? node.children.map(getCodeText).join('') : ''
 }
 
 async function hydrateTgEmoji($: CheerioAPI, content: MessageSelection, options: HydrateTgEmojiOptions = {}): Promise<void> {
@@ -71,30 +77,17 @@ export async function modifyHTMLContent($: CheerioAPI, content: MessageSelection
   }
 
   for (const preNode of content.find('pre').toArray()) {
-    try {
-      const pre = $(preNode)
-      pre.find('br').replaceWith('\n')
-
-      const code = pre.text()
-      const detectedLanguage = flourite(code, { shiki: true, noUnknown: true }).language || 'text'
-      const language = await ensurePrismLanguage(detectedLanguage)
-      const grammar = prism.languages[language]
-
-      if (!grammar) {
-        const fallbackCode = $('<code class="language-text"></code>')
-        fallbackCode.text(code)
-        pre.empty().append(fallbackCode)
-        continue
-      }
-
-      const highlightedCode = prism.highlight(code, grammar, language)
-      pre.html(`<code class="language-${language}">${highlightedCode}</code>`)
-    }
-    catch (error) {
-      if (import.meta.env.DEV) {
-        console.warn('Code highlighting failed', error)
-      }
-    }
+    const pre = $(preNode)
+    const originalCode = pre.find('code').first()
+    const classes = `${originalCode.attr('class') ?? ''} ${pre.attr('class') ?? ''}`
+    const declared = classes.match(/\blang(?:uage)?-([\w+#-]+)/i)?.[1]
+      ?? originalCode.attr('data-language') ?? pre.attr('data-language') ?? ''
+    const language = /^[\w+#-]{1,32}$/.test(declared) ? declared.toLowerCase() : 'auto'
+    // Preserve language hints for the browser worker, and escape code through .text().
+    // Language detection and token generation never run in the server request path.
+    // Read breaks without replacing/reparsing every <br> in long Telegram code blocks.
+    const code = $('<code></code>').attr('class', `language-${language}`).text(getCodeText(preNode))
+    pre.empty().append(code)
   }
 
   return content

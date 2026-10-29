@@ -1,47 +1,47 @@
 export interface Reaction {
-  emoji: string
-  emojiId?: string
-  emojiImage?: string
-  count: string
-  isPaid: boolean
+  readonly emoji: string
+  readonly emojiId?: string
+  readonly emojiImage?: string
+  readonly count: string
+  readonly isPaid: boolean
 }
 
 export interface Post {
-  id: string
-  title: string
-  type: 'text' | 'service'
-  datetime: string
-  tags: string[]
-  text: string
-  description?: string
-  content: string
-  hasImage?: boolean
-  hasFile?: boolean
-  reactions: Reaction[]
+  readonly id: string
+  readonly title: string
+  readonly type: 'text' | 'service'
+  readonly datetime: string
+  readonly tags: readonly string[]
+  readonly text: string
+  readonly description?: string
+  readonly content: string
+  readonly hasImage?: boolean
+  readonly hasFile?: boolean
+  readonly reactions: readonly Reaction[]
 }
 
 export interface ChannelInfo {
-  posts: Post[]
-  title: string
-  description: string
-  descriptionHTML: string | null
-  avatar: string | undefined
-  avatarNeedsProxy?: boolean
+  readonly posts: readonly Post[]
+  readonly title: string
+  readonly description: string
+  readonly descriptionHTML: string | null
+  readonly avatar: string | undefined
+  readonly avatarNeedsProxy?: boolean
   /** Optional SEO override injected by page routes */
-  seo?: SeoMeta
+  readonly seo?: SeoMeta
   /** Timeline navigation only; sitemap cursors use a separate format. */
-  timeline?: {
-    beforeCursor?: string
-    afterCursor?: string
+  readonly timeline?: {
+    readonly beforeCursor?: string
+    readonly afterCursor?: string
   }
-  sitemapAfterCursor?: string
+  readonly sitemapAfterCursor?: string
 }
 
 export interface SeoMeta {
-  title?: string
-  text?: string
-  noindex?: string | boolean
-  nofollow?: string | boolean
+  readonly title?: string
+  readonly text?: string
+  readonly noindex?: string | boolean
+  readonly nofollow?: string | boolean
 }
 
 /** Parameters accepted by getChannelInfo */

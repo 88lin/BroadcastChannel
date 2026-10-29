@@ -13,7 +13,7 @@
 - Lint/typecheck/test: `pnpm lint`, `pnpm typecheck`, and `pnpm test` for repo gates; `pnpm lint:fix` for auto-fix; `pnpm eslint <path>` for focused lint checks.
 - Focused tests: `pnpm test -- <path>` or `pnpm test -- -t <name>`; keep new unit coverage focused.
 - `postinstall` installs `simple-git-hooks` when `.git` exists; pre-commit runs `lint-staged` with `eslint --fix`.
-- `ci.yml` checks locked installation, lint, typecheck, tests, and build on `main`, `hub`, and `Notes` pushes/PRs. It runs independently of hosting deployments and `docker.yml`; `sync.yml` only syncs forks from upstream.
+- `ci.yml` checks locked installation, lint, typecheck, tests, the default build, and a Cloudflare build plus local workerd verification on `main`, `hub`, and `Notes` pushes/PRs. It runs independently of hosting deployments and `docker.yml`; `sync.yml` only syncs forks from upstream.
 
 ## Validation shortcuts
 
@@ -28,7 +28,8 @@
 - `src/pages/` contains Astro pages and API-style routes; `src/pages/index.astro` is intentionally thin and calls `getTimelinePage(Astro)`.
 - `src/layouts/base.astro` wires global CSS, `astro-seo`, top navigation, RSS links, `HEADER_INJECT`, and `FOOTER_INJECT`.
 - `src/middleware.ts` sets `SITE_URL`/`RSS_URL` locals, handles legacy `#tag` search rewrites, and adds speculation/cache headers and `X-Content-Type-Options: nosniff`.
-- Telegram fetching/parsing belongs in `src/lib/telegram/**`; HTML requests use `ocache` with 5 min max age and SWR disabled. Parsed data uses an LRU with 5 min fresh TTL and a separate 24 hour stale-on-error cache.
+- Telegram fetching/parsing belongs in `src/lib/telegram/**`; raw HTML requests only coalesce in flight. Parsed source pages, posts and merged timelines share one bounded LRU (256 entries / estimated 8 MiB), with 5 min freshness and 24 hour stale-on-error retention. Values are deeply frozen; callers must not mutate them. Source pages do not serve stale data into fresh aggregate entries.
+- Cloudflare uses `src/worker.ts` to cache public HTML/feed/sitemap responses via `caches.default` before Astro routing. Full URLs and a per-build namespace isolate entries; authenticated/cookie requests and private/error responses bypass storage. Keep the official adapter handler for cookie finalization. `pnpm verify:cloudflare` verifies a Cloudflare build in local workerd with fixture Telegram data; `pnpm bench:cpu` runs synthetic CPU benchmarks.
 - Shared env helpers are in `src/lib/env.ts`; runtime bindings in `Astro.locals.runtime.env` take precedence, then process env, then build-time `import.meta.env`.
 - Static proxy logic is shared in `src/lib/static-proxy.ts`; both Astro route `src/pages/static/[...url].ts` and Vercel Edge Function `api/static/index.ts` use it, with `/static/:path*` rewritten by `vercel.json`.
 - Do not broaden the static proxy target whitelist unless the task explicitly changes the security model.
@@ -49,7 +50,7 @@
 
 ## Code and content conventions
 
-- Server-rendered HTML is the default; keep browser JS small. Existing exceptions include Telegram comments, read-state tracking, and back-to-top interaction.
+- Server-rendered HTML is the default; keep browser JS small. Existing exceptions include Telegram comments, read-state tracking, back-to-top interaction, and lazy code highlighting in a browser Web Worker. Keep flourite/Prism execution out of server imports; preserve readable escaped code without JavaScript.
 - API-style routes must return `Response`/`Response.json`, not Express-like objects.
 - Follow ESLint formatting: 2 spaces, LF, UTF-8, single quotes, usually no semicolons; let `pnpm lint:fix` settle import order.
 - Preserve local naming: Astro route filenames follow routing syntax, newer reusable components use `PascalCase.astro`, older `header.astro`/`item.astro` stay lowercase.

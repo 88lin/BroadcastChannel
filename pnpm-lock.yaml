@@ -37,9 +37,6 @@ importers:
       lru-cache:
         specifier: ^11.2.7
         version: 11.5.1
-      ocache:
-        specifier: ^0.1.5
-        version: 0.1.5
       ofetch:
         specifier: ^1.5.1
         version: 1.5.1
@@ -5085,9 +5082,6 @@ packages:
   obug@2.1.2:
     resolution: {integrity: sha512-AWGB9WFcRXOQs48Z/udjI5ZcZMHXwX8XPByNpOydgcGsDLIzjGizhoMWJyKAWze7AVW/2W1i+/gPX4YtKe5cyg==}
     engines: {node: '>=12.20.0'}
-
-  ocache@0.1.5:
-    resolution: {integrity: sha512-kNNnkkVQup/QDvmTz8Q84wc2ntiyoVHDxa6eHWKt5qdGAmFRBIxy83rxgCYEjW0x06UJ9E3P6VgM2yY4rOBH4w==}
 
   ofetch@1.5.1:
     resolution: {integrity: sha512-2W4oUZlVaqAPAil6FUg/difl6YhqhUR7x2eZY4bQCko22UXg3hptq9KLQdqFClV+Wu85UX7hNtdGTngi/1BxcA==}
@@ -12140,10 +12134,6 @@ snapshots:
       es-object-atoms: 1.1.2
 
   obug@2.1.2: {}
-
-  ocache@0.1.5:
-    dependencies:
-      ohash: 2.0.11
 
   ofetch@1.5.1:
     dependencies:

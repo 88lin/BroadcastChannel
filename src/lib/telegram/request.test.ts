@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { sanitizeContentHtml } from '../sanitize'
+import { extractPost } from './parse'
 import { getTelegramRequestHeaders } from './request'
 
 afterEach(() => {
@@ -8,6 +10,45 @@ afterEach(() => {
 })
 
 describe('telegram request headers', () => {
+  it('keeps post boundaries and safe code text with misnested formatting and missing paragraph end tags', async () => {
+    vi.resetModules()
+    const html = [17, 18].map(id => `<div class="tgme_widget_message_wrap"><div class="tgme_widget_message" data-post="malformed/${id}">
+      <div class="tgme_widget_message_text"><p>first<b>bold</p>tail</b><p>second
+        <pre data-language="yaml">key: &lt;script&gt;<br>  enabled: true</pre>
+        <img src="https://example.com/image" onerror="alert(1)"><script>alert(1)</script>
+      </div><a class="tgme_widget_message_date"><time datetime="2026-01-01T00:00:00Z"></time></a>
+    </div></div>`).join('')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(html)))
+    const { loadChannelDocument } = await import('./request')
+    const { $ } = await loadChannelDocument({ request: new Request('https://site.example/') }, { channel: 'malformed' })
+    const posts = await Promise.all($('.tgme_widget_message_wrap').toArray().map(node => extractPost($, node, {
+      channel: 'malformed',
+      telegramHost: 'telegram.me',
+      staticProxy: '',
+    })))
+    expect(posts.map(post => post.id)).toEqual(['17', '18'])
+    for (const post of posts) {
+      expect(post.text).toContain('firstboldtailsecond')
+      expect(post.text).toContain('key: <script>\n  enabled: true')
+      const clean = sanitizeContentHtml(post.content)
+      expect(clean).toContain('language-yaml')
+      expect(clean).toContain('&lt;script&gt;')
+      expect(clean).not.toMatch(/<script|onerror/i)
+    }
+  })
+
+  it('parses Telegram fragments with decoded entities, void elements and custom tags', async () => {
+    vi.resetModules()
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<div class="message">中文 &amp; &lt;code&gt;<br><img src="https://example.com/a?x=1&amp;y=2"><tg-spoiler>hidden</tg-spoiler><pre>  a<br>  b</pre></div>')))
+    const { loadChannelDocument } = await import('./request')
+    const { $ } = await loadChannelDocument({ request: new Request('https://site.example/') }, { channel: 'parser-fixture' })
+    expect($('.message').text()).toContain('中文 & <code>')
+    expect($('img').attr('src')).toBe('https://example.com/a?x=1&y=2')
+    expect($('tg-spoiler').text()).toBe('hidden')
+    expect($('pre br')).toHaveLength(1)
+    expect($('html, body')).toHaveLength(0)
+  })
+
   it('uses deterministic headers without forwarding visitor or platform metadata', () => {
     const headers = getTelegramRequestHeaders()
 
